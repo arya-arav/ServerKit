@@ -1,0 +1,45 @@
+{
+  "name": "serverkit-sftp",
+  "display_name": "SFTP Access",
+  "version": "1.0.0",
+  "description": "Give FileZilla or WinSCP access to one site folder: jailed SFTP accounts over the existing SSH port, with password or key login and ACL-scoped write access. A tab in the Files group.",
+  "author": "ServerKit",
+  "license": "MIT",
+  "category": "utility",
+  "homepage": "https://github.com/arya-arav/ServerKit",
+  "permissions": [
+    "shell",
+    "filesystem"
+  ],
+  "entry_point": "sftp:sftp_bp",
+  "url_prefix": "/api/v1/sftp",
+  "icon": "<rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/>",
+  "contributions": {
+    "tabs": [
+      {
+        "group": "files",
+        "to": "/sftp",
+        "label": "SFTP access",
+        "icon": "<rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/>"
+      }
+    ],
+    "routes": [
+      {
+        "path": "sftp",
+        "component": "SftpAccessPage",
+        "group": "files"
+      }
+    ],
+    "page_titles": {
+      "/sftp": "SFTP access"
+    },
+    "command_palette": [
+      {
+        "label": "SFTP access",
+        "path": "/sftp",
+        "category": "Pages",
+        "keywords": "sftp ftp filezilla winscp upload site files account"
+      }
+    ]
+  }
+}

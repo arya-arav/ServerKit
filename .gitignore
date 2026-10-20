@@ -205,6 +205,7 @@ backend/app/plugins/serverkit-cloudflare-ops/
 backend/app/plugins/serverkit-k8s/
 backend/app/plugins/serverkit-mail/
 backend/app/plugins/serverkit-remote-access/
+backend/app/plugins/serverkit-sftp/
 # serverkit-status is deliberately NOT ignored: it is the tracked live copy
 # that keeps test_builtin_extension_drift non-vacuous on a fresh clone.
 # (serverkit-email held this role until it left the tree in plan 52.)

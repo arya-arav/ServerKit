@@ -1,0 +1,97 @@
+// ============================================
+// SFTP ACCESS  (/sftp — a tab in the Files group)
+// ============================================
+// Compiled through the extension's module graph (imported by index.jsx).
+// The baked copy lives at frontend/src/plugins/serverkit-sftp/, so this
+// sync-safe path resolves to the host's Sass design-token partial.
+@import '../../../styles/variables';
+
+.sftp-access {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+
+    &__panel {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-lg);
+    }
+
+    &__panel-head {
+        padding: $space-4 $space-5;
+        border-bottom: 1px solid var(--border-soft);
+
+        h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+    }
+
+    &__panel-body {
+        padding: $space-4 $space-5;
+    }
+
+    &__muted {
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    &__mono {
+        font-family: $font-mono;
+        font-size: 12.5px;
+    }
+
+    &__checks {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+        margin: $space-4 0;
+        padding: 0;
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: $space-3;
+        }
+    }
+
+    &__host-form {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+        max-width: 420px;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+        margin-bottom: $space-4;
+    }
+
+    &__switch {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    &__folder {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    &__pills {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: $space-1;
+    }
+
+    &__actions {
+        display: inline-flex;
+        justify-content: flex-end;
+        gap: $space-1;
+    }
+}

@@ -26,6 +26,11 @@ const EXTENSION_OWNED_STYLES = [
         importPath: './styles/remote-access.scss',
         forbiddenCoreImports: ['pages/_remote-access', 'pages/remote-access'],
     },
+    {
+        slug: 'serverkit-sftp',
+        importPath: './styles/sftp-access.scss',
+        forbiddenCoreImports: ['pages/_sftp-access', 'pages/sftp-access'],
+    },
 ];
 
 // Emptied 2026-08-18 (plan 76, F3): every call site now goes through
