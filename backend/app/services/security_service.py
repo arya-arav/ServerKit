@@ -18,6 +18,7 @@ import os
 import json
 import shlex
 import hashlib
+import stat as stat_mod
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -110,17 +111,19 @@ class SecurityService:
                 for root, dirs, files in os.walk(base_path):
                     for filename in files:
                         file_path = os.path.join(root, filename)
+                        stat = cls._regular_file_stat(file_path)
+                        if stat is None:
+                            continue
                         try:
                             file_hash = cls._calculate_file_hash(file_path)
-                            stat = os.stat(file_path)
                             database['files'][file_path] = {
                                 'hash': file_hash,
                                 'size': stat.st_size,
                                 'mtime': stat.st_mtime,
                                 'mode': stat.st_mode
                             }
-                        except (PermissionError, FileNotFoundError):
-                            continue
+                        except OSError:
+                            continue  # unreadable or vanished mid-scan
 
             # Save database
             os.makedirs(cls.CONFIG_DIR, exist_ok=True)
@@ -162,9 +165,11 @@ class SecurityService:
                     changes['deleted'].append(file_path)
                     continue
 
+                stat = cls._regular_file_stat(file_path)
+                if stat is None:
+                    continue  # no longer a regular file; never hash sockets/FIFOs
                 try:
                     current_hash = cls._calculate_file_hash(file_path)
-                    stat = os.stat(file_path)
 
                     if current_hash != expected['hash']:
                         changes['modified'].append({
@@ -178,7 +183,7 @@ class SecurityService:
                             'old_mode': oct(expected['mode']),
                             'new_mode': oct(stat.st_mode)
                         })
-                except (PermissionError, FileNotFoundError):
+                except OSError:
                     continue
 
             # Check for new files
@@ -189,7 +194,8 @@ class SecurityService:
                 for root, dirs, files in os.walk(base_path):
                     for filename in files:
                         file_path = os.path.join(root, filename)
-                        if file_path not in database['files']:
+                        if (file_path not in database['files']
+                                and cls._regular_file_stat(file_path) is not None):
                             changes['new'].append(file_path)
 
             # Send notifications if changes detected
@@ -214,6 +220,20 @@ class SecurityService:
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    @staticmethod
+    def _regular_file_stat(file_path: str):
+        """os.stat() of a regular file, or None for anything else.
+
+        Only regular files are hashed. Opening a socket raises ENXIO (Oracle's
+        monitoring agent keeps one under /etc) and opening a FIFO for reading
+        blocks forever, so either one used to abort or hang the whole scan.
+        """
+        try:
+            st = os.stat(file_path)
+        except OSError:
+            return None
+        return st if stat_mod.S_ISREG(st.st_mode) else None
 
     @classmethod
     def _calculate_file_hash(cls, file_path: str) -> str:
