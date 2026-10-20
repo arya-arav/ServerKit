@@ -599,6 +599,14 @@ def verify_domain(domain_id):
     domain = Domain.query_active().filter_by(id=domain_id).first()
     if not domain:
         raise not_found('domain')
+    # Same gate as every other per-domain route: the parent must be live and
+    # visible to the caller (this one skipped it, so any logged-in user could
+    # probe any domain id, including those of deleted services).
+    app = Application.query_active().filter_by(id=domain.application_id).first()
+    if not app:
+        raise not_found('domain')
+    if not ResourceGrantService.can_access_app(User.query.get(get_jwt_identity()), app):
+        raise permission_denied()
 
     try:
         ips = _resolve_host_ips(domain.name)

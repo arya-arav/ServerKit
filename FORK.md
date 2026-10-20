@@ -45,6 +45,8 @@
   - Its HTTPS is switched off, because the certificate belonged to the source's lineage, and the response says to run Enable SSL on the target.
   - Deleting or moving a primary now promotes the oldest remaining domain (`_ensure_primary`). Before, the service was left with no primary.
   - Tests: `backend/tests/test_move_domain.py`.
+- **Verify DNS checks access** (`domains.py` `verify_domain`). It was the only per-domain route without the live-service and `can_access_app` gate, so any logged-in user could probe any domain id, including those of deleted services. Tests: `backend/tests/test_verify_domain_access.py`.
+- **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.
