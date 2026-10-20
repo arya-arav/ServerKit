@@ -19,7 +19,7 @@ export default function AddScheduleModal({ open, onClose, onCreate, onCreated, r
     const targetLabel = form.values.backupType === 'files'
         ? t('app.backups.schedulePaths', 'Paths (comma-separated)')
         : form.values.backupType === 'database'
-            ? t('app.backups.scheduleDatabase', 'Database (format: mysql:dbname or postgresql:dbname)')
+            ? t('app.backups.scheduleDatabase', 'Database (mysql:dbname, postgresql:dbname, or container:container-name/dbname for Docker)')
             : t('app.backups.applicationName', 'Service name');
 
     return (
@@ -46,7 +46,7 @@ export default function AddScheduleModal({ open, onClose, onCreate, onCreated, r
                     </Select>
                 </FormField>
                 <FormField htmlFor="backup-schedule-target" label={targetLabel} error={form.getFieldError('target')} required>
-                    <Input id="backup-schedule-target" type="text" {...form.getFieldProps('target')} placeholder={form.values.backupType === 'files' ? '/etc/nginx,/var/www/config' : form.values.backupType === 'database' ? 'mysql:mydb' : 'my-app'} required />
+                    <Input id="backup-schedule-target" type="text" {...form.getFieldProps('target')} placeholder={form.values.backupType === 'files' ? '/etc/nginx,/var/www/config' : form.values.backupType === 'database' ? 'container:my-app-db-1/mydb' : 'my-app'} required />
                 </FormField>
                 <FormField htmlFor="backup-schedule-time" label={t('common.labels.time', 'Time')} error={form.getFieldError('scheduleTime')} hint={timezone} required>
                     <Input id="backup-schedule-time" type="time" {...form.getFieldProps('scheduleTime')} required />

@@ -62,6 +62,10 @@
   - **No double upload:** a scheduled upload is skipped when auto-upload already sent the backup.
   - Tests: `backend/tests/test_backup_offsite_upkeep.py`.
 - **Run a backup schedule now** (`POST /api/v1/backups/schedules/<id>/run`, `BackupService.run_schedule_now`; play button on Backups → Schedules). Queues one background run of the schedule outside its timetable. Upstream's table already had the button slot but nothing behind it. Tests: `backend/tests/test_backup_run_now.py`.
+- **Back up databases that run in Docker** (`BackupService._dump_container_database`; Database schedule target `container:<container>/<database>`, or `container:<container>` for all databases). Upstream's database backups ran `mysqldump`/`pg_dump` on the host only, which fails for the usual Docker setup where the database is a service in the app's compose stack.
+  - **How it runs:** the engine (MariaDB/MySQL/Percona or PostgreSQL) comes from the container image, and the dump runs inside the container with the credentials it was started with, so the panel stores no password.
+  - **Safety:** a dump without its completion trailer is deleted rather than kept as a backup, and the container and database names are validated before anything runs.
+  - Tests: `backend/tests/test_backup_container_db.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

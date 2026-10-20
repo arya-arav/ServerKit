@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 import shutil
 import tarfile
 import tempfile
@@ -26,6 +27,45 @@ logger = logging.getLogger(__name__)
 
 # Unified job kind for asynchronous scheduled backups (see register_jobs).
 BACKUP_JOB_KIND = 'backup.run'
+
+# Container database dumps (BackupService._dump_container_database). The
+# scripts run inside the container and read its own credential variables.
+_CONTAINER_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+_DB_NAME_RE = re.compile(r'^[A-Za-z0-9_$-]+$')
+_MYSQL_DUMP_SCRIPT = r'''
+DUMP=$(command -v mariadb-dump || command -v mysqldump) || { echo "no mysqldump in the container" >&2; exit 127; }
+if [ -n "${MARIADB_ROOT_PASSWORD:-}${MYSQL_ROOT_PASSWORD:-}" ]; then
+  U=root; MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}"
+else
+  U="${MARIADB_USER:-${MYSQL_USER:-root}}"; MYSQL_PWD="${MARIADB_PASSWORD:-${MYSQL_PASSWORD:-}}"
+fi
+export MYSQL_PWD
+if [ -n "$1" ]; then set -- --databases "$1"; else set -- --all-databases; fi
+exec "$DUMP" -u"$U" --single-transaction --routines --triggers --events "$@"
+'''
+_PG_DUMP_SCRIPT = r'''
+U="${POSTGRES_USER:-postgres}"
+if [ -n "$1" ]; then exec pg_dump -U "$U" --clean --if-exists "$1"; fi
+exec pg_dumpall -U "$U" --clean --if-exists
+'''
+
+
+def _safe_name(name: str) -> str:
+    """A database target as a file-name fragment (``app-db/shop`` → ``app-db_shop``)."""
+    return re.sub(r'[^A-Za-z0-9_.-]', '_', name or '') or 'database'
+
+
+def _gzip_tail(path: str, size: int = 512) -> str:
+    """The last ``size`` bytes of a gzip file's content, decoded."""
+    import gzip
+    tail = b''
+    with gzip.open(path, 'rb') as f:
+        while True:
+            chunk = f.read(1024 * 1024)
+            if not chunk:
+                break
+            tail = (tail + chunk)[-size:]
+    return tail.decode('utf-8', 'replace')
 
 
 class BackupService:
@@ -188,9 +228,12 @@ class BackupService:
     def _backup_database_internal(cls, db_type: str, db_name: str,
                                   backup_dir: str, config: Dict) -> Dict:
         """Internal database backup helper."""
-        backup_file = os.path.join(backup_dir, f'{db_name}.sql.gz')
+        backup_file = os.path.join(backup_dir, f'{_safe_name(db_name)}.sql.gz')
 
         try:
+            if db_type == 'container':
+                return cls._dump_container_database(db_name, backup_file)
+
             if db_type == 'mysql':
                 if not is_command_available('mysqldump'):
                     return {'success': False, 'error': 'mysqldump not installed'}
@@ -234,6 +277,45 @@ class BackupService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
+    def _dump_container_database(cls, target: str, backup_file: str) -> Dict:
+        """Dump a database that runs in a Docker container.
+
+        ``target`` is ``<container>/<database>``, or ``<container>`` for every
+        database. The dump runs inside the container with the credentials the
+        image was started with, so the panel stores no password. Upstream could
+        only dump a database server installed on the host, which is not how
+        most apps on a Docker panel run theirs. Fork: arya-arav/ServerKit.
+        """
+        container, _, database = target.partition('/')
+        if not _CONTAINER_RE.match(container) or (database and not _DB_NAME_RE.match(database)):
+            return {'success': False, 'error': f'Invalid container database target: {target}'}
+
+        inspect = run_checked(['docker', 'inspect', '--format', '{{.Config.Image}}', container],
+                              privileged=True, timeout=30)
+        if not inspect['success']:
+            return {'success': False, 'error': f'Container {container} not found'}
+        image = (inspect.get('output') or '').strip().lower()
+        if any(name in image for name in ('postgres', 'postgis', 'timescale')):
+            script, marker = _PG_DUMP_SCRIPT, 'dump complete'
+        elif any(name in image for name in ('mariadb', 'mysql', 'percona')):
+            script, marker = _MYSQL_DUMP_SCRIPT, 'dump completed'
+        else:
+            return {'success': False,
+                    'error': f'{container} runs {image or "an unknown image"}, not MariaDB, MySQL or PostgreSQL'}
+
+        cmd = ['docker', 'exec', container, 'sh', '-c', script, 'sh']
+        if database:
+            cmd.append(database)
+        result = run_to_gzip(cmd, backup_file, timeout=3600)
+        if not result['success']:
+            return {'success': False, 'error': result['error']}
+        # A dump cut short still exits 0 often enough; only a finished one is kept.
+        if marker not in _gzip_tail(backup_file).lower():
+            os.remove(backup_file)
+            return {'success': False, 'error': 'The dump did not finish; nothing was kept'}
+        return {'success': True, 'path': backup_file}
+
+    @classmethod
     def backup_database(cls, db_type: str, db_name: str,
                        user: str = None, password: str = None,
                        host: str = 'localhost',
@@ -243,7 +325,7 @@ class BackupService:
 
         correlation_id = correlation_id or generate_correlation_id()
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f"{db_type}_{db_name}_{timestamp}.sql.gz"
+        backup_name = f"{db_type}_{_safe_name(db_name)}_{timestamp}.sql.gz"
         backup_path = os.path.join(cls.BACKUP_BASE_DIR, 'databases', backup_name)
 
         TelemetryService.emit(
@@ -673,6 +755,36 @@ class BackupService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
+    def _cleanup_remote(cls, cutoff: datetime) -> Dict:
+        """Delete off-site copies last modified before ``cutoff``.
+
+        Only objects under the destination's path prefix are considered, and
+        nothing runs without one, so a shared bucket is never swept. Upstream
+        pruned local copies only and the bucket grew forever. Fork: arya-arav/ServerKit.
+        """
+        try:
+            from app.services.storage_provider_service import StorageProviderService
+            config = StorageProviderService.get_config()
+            provider = config.get('provider', 'local')
+            if provider == 'local':
+                return {'deleted': 0}
+            if not (config.get(provider) or {}).get('path_prefix', '').strip('/'):
+                return {'deleted': 0, 'error': 'no path prefix set; off-site copies left alone'}
+            listing = StorageProviderService.list_files()
+            if not listing.get('success'):
+                return {'deleted': 0, 'error': listing.get('error')}
+            deleted = 0
+            for obj in listing.get('files', []):
+                if datetime.fromisoformat(obj['last_modified']) >= cutoff:
+                    continue
+                if StorageProviderService.delete_file(obj['key']).get('success'):
+                    deleted += 1
+            return {'deleted': deleted}
+        except Exception as e:  # noqa: BLE001 - never fails the local cleanup
+            logger.warning('Off-site backup cleanup failed: %s', e)
+            return {'deleted': 0, 'error': str(e)}
+
+    @classmethod
     def add_schedule(cls, name: str, backup_type: str, target: str,
                     schedule_time: str, days: List[str] = None,
                     upload_remote: bool = False) -> Dict:
@@ -750,36 +862,6 @@ class BackupService:
         ) for entry in config.get('schedules', [])]
 
     @classmethod
-    def _cleanup_remote(cls, cutoff: datetime) -> Dict:
-        """Delete off-site copies last modified before ``cutoff``.
-
-        Only objects under the destination's path prefix are considered, and
-        nothing runs without one, so a shared bucket is never swept. Upstream
-        pruned local copies only and the bucket grew forever. Fork: arya-arav/ServerKit.
-        """
-        try:
-            from app.services.storage_provider_service import StorageProviderService
-            config = StorageProviderService.get_config()
-            provider = config.get('provider', 'local')
-            if provider == 'local':
-                return {'deleted': 0}
-            if not (config.get(provider) or {}).get('path_prefix', '').strip('/'):
-                return {'deleted': 0, 'error': 'no path prefix set; off-site copies left alone'}
-            listing = StorageProviderService.list_files()
-            if not listing.get('success'):
-                return {'deleted': 0, 'error': listing.get('error')}
-            deleted = 0
-            for obj in listing.get('files', []):
-                if datetime.fromisoformat(obj['last_modified']) >= cutoff:
-                    continue
-                if StorageProviderService.delete_file(obj['key']).get('success'):
-                    deleted += 1
-            return {'deleted': deleted}
-        except Exception as e:  # noqa: BLE001 - never fails the local cleanup
-            logger.warning('Off-site backup cleanup failed: %s', e)
-            return {'deleted': 0, 'error': str(e)}
-
-    @classmethod
     def get_backup_stats(cls) -> Dict:
         """Get backup statistics."""
         backups = cls.list_backups()
@@ -832,6 +914,30 @@ class BackupService:
 
         backup_info['encrypted'] = False
         return path
+
+    @staticmethod
+    def _meta_path_for(backup_path: str) -> Optional[str]:
+        """The metadata file that describes a backup artifact, if it has one."""
+        if os.path.isdir(backup_path):
+            return os.path.join(backup_path, 'backup.json')
+        base = backup_path[:-len('.enc')] if backup_path.endswith('.enc') else backup_path
+        if base.endswith('.tar.gz'):
+            return base[:-len('.tar.gz')] + '.json'
+        return None
+
+    @classmethod
+    def _record_remote(cls, backup_path: str, backup_info: Dict, upload: Dict) -> None:
+        """Mark a backup as synced off-site, in memory and in its metadata file.
+
+        Upstream rewrote the metadata of directory backups only, so a file
+        backup listed as "local" even after a successful upload. Fork: arya-arav/ServerKit.
+        """
+        backup_info['remote_status'] = 'synced'
+        backup_info['remote_key'] = upload.get('remote_key', '')
+        meta_path = cls._meta_path_for(backup_path)
+        if meta_path and os.path.exists(meta_path):
+            with open(meta_path, 'w') as f:
+                json.dump(backup_info, f, indent=2)
 
     @classmethod
     def _auto_upload(cls, backup_path: str, backup_info: Dict) -> None:
@@ -917,30 +1023,6 @@ class BackupService:
             raise RuntimeError(f"tar failed: {result['error'][:300]}")
         return {'archive': archive, 'size': os.path.getsize(archive),
                 'compression': program, 'kind': kind, 'incremental': kind == 'incremental', 'ext': ext}
-
-    @staticmethod
-    def _meta_path_for(backup_path: str) -> Optional[str]:
-        """The metadata file that describes a backup artifact, if it has one."""
-        if os.path.isdir(backup_path):
-            return os.path.join(backup_path, 'backup.json')
-        base = backup_path[:-len('.enc')] if backup_path.endswith('.enc') else backup_path
-        if base.endswith('.tar.gz'):
-            return base[:-len('.tar.gz')] + '.json'
-        return None
-
-    @classmethod
-    def _record_remote(cls, backup_path: str, backup_info: Dict, upload: Dict) -> None:
-        """Mark a backup as synced off-site, in memory and in its metadata file.
-
-        Upstream rewrote the metadata of directory backups only, so a file
-        backup listed as "local" even after a successful upload. Fork: arya-arav/ServerKit.
-        """
-        backup_info['remote_status'] = 'synced'
-        backup_info['remote_key'] = upload.get('remote_key', '')
-        meta_path = cls._meta_path_for(backup_path)
-        if meta_path and os.path.exists(meta_path):
-            with open(meta_path, 'w') as f:
-                json.dump(backup_info, f, indent=2)
 
     @classmethod
     def restore_incremental_chain(cls, archives, restore_path):

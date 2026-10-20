@@ -727,7 +727,7 @@
             "saveSettings": "Save settings",
             "saveStorageConfig": "Save storage settings",
             "scheduleAdded": "Schedule added",
-            "scheduleDatabase": "Database (format: mysql:dbname or postgresql:dbname)",
+            "scheduleDatabase": "Database (mysql:dbname, postgresql:dbname, or container:container-name/dbname for Docker)",
             "scheduleName": "Schedule name",
             "scheduleOff": "Schedule turned off",
             "scheduleOn": "Schedule turned on",
