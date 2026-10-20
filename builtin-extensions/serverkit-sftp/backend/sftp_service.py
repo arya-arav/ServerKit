@@ -525,10 +525,52 @@ def _grant_acl(username: str, target: str) -> None:
              'Setting default folder permissions')
 
 
-def _revoke_acl(username: str, target: str) -> None:
+def _has_extended_acl(target: str) -> bool:
+    """Whether anything under *target* already carries a POSIX ACL.
+
+    ``getfacl -s`` lists only files whose ACL goes beyond the mode bits.
+    """
+    result = run_checked(['getfacl', '-R', '-s', '-p', target], privileged=True, timeout=600)
+    return bool((result.get('output') or '').strip())
+
+
+def _acl_baseline(target: str, accounts: Dict[str, dict]) -> str:
+    """'none' when the folder had no ACLs before the extension touched it.
+
+    An account sharing the folder (or a folder around or inside it) has
+    already added ACLs, so its baseline is inherited instead of probed.
+    """
+    for other in accounts.values():
+        path = other.get('path') or ''
+        if path and (_within(target, path) or _within(path, target)):
+            return other.get('acl_baseline', 'existing')
+    return 'existing' if _has_extended_acl(target) else 'none'
+
+
+def _revoke_acl(username: str, target: str, *, restore: bool = False) -> None:
+    """Remove the account's ACL entries; with *restore*, every ACL under the folder.
+
+    *restore* is only passed when the folder had no ACLs before the extension
+    and no other account still uses it: the default entries for the owner and
+    group (and the ACL mask on every file) were ours, and would otherwise stay
+    forever.
+    """
+    if restore:
+        run_privileged(['setfacl', '-R', '-b', target], timeout=600)
+        return
     run_privileged(['setfacl', '-R', '-x', f'u:{username}', target], timeout=600)
     run_privileged(['find', target, '-type', 'd', '-exec', 'setfacl', '-d', '-x',
                     f'u:{username}', '{}', '+'], timeout=600)
+
+
+def _restore_allowed(username: str, account: dict, accounts: Dict[str, dict]) -> bool:
+    if account.get('acl_baseline') != 'none':
+        return False
+    target = account.get('path') or ''
+    return not any(
+        name != username and other.get('path')
+        and (_within(target, other['path']) or _within(other['path'], target))
+        for name, other in accounts.items())
 
 
 def _update_fstab(transform) -> None:
@@ -637,6 +679,7 @@ def create_account(username: str, path: str, *, password: Optional[str] = None,
     except (TypeError, ValueError):
         app_id = None
     app = next((t for t in app_targets() if t['app_id'] == app_id), None) if app_id else None
+    baseline = _acl_baseline(target, _accounts())
 
     created_user = False
     try:
@@ -650,13 +693,16 @@ def create_account(username: str, path: str, *, password: Optional[str] = None,
         _mount(username, target)
         _grant_acl(username, target)
     except SFTPError:
-        _cleanup(username, target, user_created=created_user)
+        _cleanup(username, target, user_created=created_user,
+                 restore_acl=_restore_allowed(username, {'path': target, 'acl_baseline': baseline},
+                                              _accounts()))
         raise
 
     accounts = _accounts()
     accounts[username] = {
         'username': username,
         'path': target,
+        'acl_baseline': baseline,
         'app_id': app['app_id'] if app else None,
         'app_name': app['name'] if app else None,
         'domain': app['domain'] if app else None,
@@ -672,24 +718,26 @@ def create_account(username: str, path: str, *, password: Optional[str] = None,
     return result
 
 
-def _cleanup(username: str, target: str, *, user_created: bool) -> None:
+def _cleanup(username: str, target: str, *, user_created: bool, restore_acl: bool = False) -> None:
     """Best-effort undo of a half-created or deleted account."""
     run_privileged(['pkill', '-KILL', '-u', username])
     _unmount(username)
-    _revoke_acl(username, target)
     if user_created:
         owner, group = _owner_and_group(target)
         # Files the account uploaded would otherwise belong to a uid nobody has.
         run_privileged(['find', target, '-user', username, '-exec', 'chown', f'{owner}:{group}', '{}', '+'],
                        timeout=600)
+    _revoke_acl(username, target, restore=restore_acl)
+    if user_created:
         run_privileged(['userdel', username])
     run_privileged(['rm', '-f', f'{KEYS_DIR}/{username}'])
 
 
 def delete_account(username: str) -> None:
     account = get_account(username)
-    _cleanup(username, account['path'], user_created=_user_exists(username))
     accounts = _accounts()
+    _cleanup(username, account['path'], user_created=_user_exists(username),
+             restore_acl=_restore_allowed(username, account, accounts))
     accounts.pop(username, None)
     _save_accounts(accounts)
 

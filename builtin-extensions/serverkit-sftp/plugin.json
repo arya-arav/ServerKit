@@ -1,7 +1,7 @@
 {
   "name": "serverkit-sftp",
   "display_name": "SFTP Access",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Give FileZilla or WinSCP access to one site folder: jailed SFTP accounts over the existing SSH port, with password or key login and ACL-scoped write access. A tab in the Files group.",
   "author": "ServerKit",
   "license": "MIT",

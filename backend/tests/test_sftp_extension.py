@@ -201,12 +201,14 @@ def test_create_account_runs_the_expected_steps(app, svc, fake_subprocess, monke
     fake_subprocess.script(['mount'])
     fake_subprocess.script(['setfacl'])
     fake_subprocess.script(['find'])
+    fake_subprocess.script(['getfacl'])  # no ACLs on the folder yet
 
     with app.app_context():
         account = svc.create_account('web', '/srv/site', password='correct-horse-battery')
         assert account['username'] == 'web'
         assert account['password'] == 'correct-horse-battery'
         assert svc.get_account('web')['path'] == '/srv/site'
+        assert svc.get_account('web')['acl_baseline'] == 'none'
         assert 'password' not in svc.get_account('web')  # never stored
 
     commands = fake_subprocess.commands()
@@ -219,6 +221,77 @@ def test_create_account_runs_the_expected_steps(app, svc, fake_subprocess, monke
     assert ['setfacl', '-R', '-m', 'u:web:rwX', '/srv/site'] in commands
     defaults = next(c for c in commands if c[:4] == ['find', '/srv/site', '-type', 'd'])
     assert 'u:web:rwX,g:www-data:rX,u:ubuntu:rwX' in defaults
+
+
+# --- deleting an account puts the folder's permissions back (fork) ----------------------
+
+@pytest.fixture
+def deletable(app, svc, fake_subprocess, monkeypatch):
+    monkeypatch.setattr(svc, '_user_exists', lambda name: True)
+    monkeypatch.setattr(svc, '_owner_and_group', lambda path: ('ubuntu', 'www-data'))
+    monkeypatch.setattr(svc, '_update_fstab', lambda transform: None)
+    monkeypatch.setattr(svc, '_is_mounted', lambda path: False)
+    for cmd in ('pkill', 'rmdir', 'find', 'setfacl', 'userdel', 'rm'):
+        fake_subprocess.script([cmd])
+
+    def seed(**accounts):
+        with app.app_context():
+            svc._save_accounts({name: {'username': name, **rec} for name, rec in accounts.items()})
+    return seed
+
+
+def _acl_commands(fake_subprocess):
+    return [c for c in fake_subprocess.commands() if c[0] == 'setfacl' or 'setfacl' in c]
+
+
+def test_deleting_the_last_account_removes_every_acl_it_added(app, svc, fake_subprocess, deletable):
+    deletable(web={'path': '/srv/site', 'acl_baseline': 'none'})
+
+    with app.app_context():
+        svc.delete_account('web')
+
+    assert ['setfacl', '-R', '-b', '/srv/site'] in fake_subprocess.commands()
+
+
+def test_a_folder_that_had_acls_keeps_them(app, svc, fake_subprocess, deletable):
+    deletable(web={'path': '/srv/site', 'acl_baseline': 'existing'})
+
+    with app.app_context():
+        svc.delete_account('web')
+
+    acl = _acl_commands(fake_subprocess)
+    assert ['setfacl', '-R', '-x', 'u:web', '/srv/site'] in acl
+    assert not any('-b' in c for c in acl)
+
+
+@pytest.mark.parametrize('other_path', ['/srv/site', '/srv/site/uploads', '/srv'])
+def test_a_folder_another_account_still_uses_keeps_its_defaults(
+        app, svc, fake_subprocess, deletable, other_path):
+    deletable(web={'path': '/srv/site', 'acl_baseline': 'none'},
+              other={'path': other_path, 'acl_baseline': 'none'})
+
+    with app.app_context():
+        svc.delete_account('web')
+
+    assert not any('-b' in c for c in _acl_commands(fake_subprocess))
+
+
+def test_accounts_made_before_the_baseline_was_recorded_are_left_alone(
+        app, svc, fake_subprocess, deletable):
+    deletable(web={'path': '/srv/site'})
+
+    with app.app_context():
+        svc.delete_account('web')
+
+    assert not any('-b' in c for c in _acl_commands(fake_subprocess))
+
+
+def test_a_second_account_on_the_same_folder_inherits_the_baseline(app, svc, fake_subprocess):
+    with app.app_context():
+        svc._save_accounts({'web': {'username': 'web', 'path': '/srv/site', 'acl_baseline': 'none'}})
+        # The first account's ACLs are on the folder now; probing would say 'existing'.
+        assert svc._acl_baseline('/srv/site/public', svc._accounts()) == 'none'
+    assert fake_subprocess.commands() == []
 
 
 def test_create_account_requires_setup(app, svc, monkeypatch, fake_subprocess):
