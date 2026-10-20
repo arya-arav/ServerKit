@@ -13,7 +13,6 @@ import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
 import useDevMode from '../hooks/useDevMode';
 import { useManagedProfile } from '../contexts/useManagedProfile';
-import QuickCreate from './QuickCreate';
 import { useWorkspace } from '../contexts/useWorkspace.js';
 import { Button as SharedButton } from '@/components/ui/button';
 import { useShortcut } from '../hooks/useShortcut';
@@ -38,6 +37,25 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
     const collapsible = !isMobile && layout !== 'topbar';
     const collapsed = layout === 'rail';
     const toggleCollapsed = () => setLayout(collapsed ? 'sidebar' : 'rail');
+    // Sits in the brand row where the "+" (command palette, also Ctrl+K) was.
+    const collapseToggle = collapsible && (
+        <SharedButton variant="unstyled"
+            type="button"
+            className="sidebar-collapse-toggle"
+            onClick={toggleCollapsed}
+            aria-pressed={collapsed}
+            aria-label={collapsed
+                ? t('nav.expandSidebarLong', 'Expand the sidebar')
+                : t('nav.collapseSidebarLong', 'Collapse the sidebar')}
+            title={collapsed
+                ? t('nav.expandSidebarHint', 'Expand (Ctrl+B)')
+                : t('nav.collapseSidebarHint', 'Collapse (Ctrl+B)')}
+        >
+            {collapsed
+                ? <PanelLeftOpen size={16} aria-hidden="true" />
+                : <PanelLeftClose size={16} aria-hidden="true" />}
+        </SharedButton>
+    );
 
     useShortcut({
         id: 'toggle-sidebar',
@@ -365,7 +383,7 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
                             </span>
                             </>
                         )}
-                    <QuickCreate variant="header" />
+                    {collapseToggle}
                 </div>
             ) : (
                 <div className="brand-section">
@@ -383,7 +401,7 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
                     >
                         <Star size={14} aria-hidden="true" />
                     </a>
-                    <QuickCreate variant="header" />
+                    {collapseToggle}
                 </div>
             )}
 
@@ -564,22 +582,6 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
                             {t('common.actions.logOut', 'Sign out')}
                         </SharedButton>
                     </div>
-                )}
-                {collapsible && (
-                    <SharedButton variant="unstyled"
-                        type="button"
-                        className="sidebar-collapse-btn"
-                        onClick={toggleCollapsed}
-                        aria-pressed={collapsed}
-                        title={t('nav.toggleSidebarHint', 'Ctrl+B')}
-                    >
-                        {collapsed
-                            ? <PanelLeftOpen size={18} aria-hidden="true" />
-                            : <PanelLeftClose size={18} aria-hidden="true" />}
-                        <span className="sidebar-collapse-btn__label">
-                            {collapsed ? t('nav.expandSidebar', 'Expand') : t('nav.collapseSidebar', 'Collapse')}
-                        </span>
-                    </SharedButton>
                 )}
                 <div className="sidebar-footer__row">
                     <SharedButton variant="unstyled"

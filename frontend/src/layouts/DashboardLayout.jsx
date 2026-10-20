@@ -104,7 +104,7 @@ const DashboardLayout = () => {
         ensureContributions();
     }, []);
 
-    // The sidebar "+" (QuickCreate) opens the palette. It lives outside this
+    // The mobile top bar's "+" (QuickCreate) opens the palette. It lives outside this
     // component's state, so it asks via a window event rather than prop
     // drilling through Sidebar.
     useEffect(() => {

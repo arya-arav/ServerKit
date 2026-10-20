@@ -72,7 +72,7 @@ const LEGACY_COLOR_LITERALS = new Map(Object.entries({
     'styles/components/_users.scss': 2,
     'styles/components/_widget-editor.scss': 1,
     'styles/layout/_main-content.scss': 1,
-    'styles/layout/_sidebar.scss': 5,
+    'styles/layout/_sidebar.scss': 2,
     'styles/pages/_applications.scss': 4,
     'styles/pages/_auth.scss': 3,
     'styles/pages/_backups.scss': 1,

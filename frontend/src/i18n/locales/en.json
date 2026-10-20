@@ -8370,7 +8370,8 @@
         },
         "closeMenu": "Close navigation menu",
         "collapseGroup": "Collapse {{group}}",
-        "collapseSidebar": "Collapse",
+        "collapseSidebarHint": "Collapse (Ctrl+B)",
+        "collapseSidebarLong": "Collapse the sidebar",
         "cron": "Cron jobs",
         "customizeSidebar": "Customize sidebar",
         "dashboard": "Dashboard",
@@ -8380,7 +8381,8 @@
         "documentation": "Documentation",
         "domains": "Domains",
         "expandGroup": "Expand {{group}}",
-        "expandSidebar": "Expand",
+        "expandSidebarHint": "Expand (Ctrl+B)",
+        "expandSidebarLong": "Expand the sidebar",
         "files": "Files",
         "layout": "Layout",
         "layoutCompact": "Compact",
@@ -8438,7 +8440,6 @@
         "themeSystem": "System",
         "themeSystemLong": "System theme",
         "toggleSidebar": "Collapse or expand the sidebar",
-        "toggleSidebarHint": "Ctrl+B",
         "userFallback": "User"
     },
     "notifications": {

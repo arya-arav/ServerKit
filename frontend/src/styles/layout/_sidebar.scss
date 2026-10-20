@@ -265,36 +265,30 @@
     text-overflow: ellipsis;
 }
 
-// Quick-create now lives in the brand row: logo → name → GitHub star → create.
-// The square accent treatment matches the prototype's compact app-chrome tool.
-.quick-create.quick-create--header {
+// Brand row: logo → name → GitHub star → collapse/expand toggle (fork; the
+// toggle replaced the "+" quick-create, whose palette is still Ctrl+K).
+.sidebar-collapse-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: $control-sm;
     height: $control-sm;
     border: none;
     border-radius: $radius-control;
-    background: var(--accent);
-    box-shadow: none;
-    color: #fff;
+    background: transparent;
+    color: var(--text-faint);
     flex-shrink: 0;
-    transition: filter 0.15s, transform 0.15s;
-
-    svg {
-        stroke: #fff;
-    }
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
+    @include focus-ring();
 
     &:hover {
-        background: linear-gradient(160deg, var(--accent-bright), var(--accent));
-        color: #fff;
-        filter: brightness(1.12);
-        transform: translateY(-1px);
-    }
-
-    &:active {
-        transform: translateY(0);
+        background: var(--surface-hover);
+        color: var(--text-primary);
     }
 }
 
-.brand-section--custom .quick-create--header {
+.brand-section--custom .sidebar-collapse-toggle {
     margin-inline-start: auto;
 }
 
@@ -497,39 +491,6 @@
     border-top: 1px solid $border-subtle;
     flex-shrink: 0;
     position: relative;
-}
-
-// Collapse / Expand — switches between the full sidebar and the icon rail.
-.sidebar-collapse-btn {
-    display: flex;
-    align-items: center;
-    gap: $space-3;
-    width: 100%;
-    padding: 0.5rem 0.625rem;
-    margin-bottom: $space-2;
-    border: none;
-    border-radius: $radius-card;
-    background: transparent;
-    color: var(--text-dim);
-    font: inherit;
-    font-size: $text-sm;
-    text-align: left;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background-color 0.14s ease, color 0.14s ease;
-    @include focus-ring();
-
-    svg {
-        flex-shrink: 0;
-        color: var(--text-faint);
-    }
-
-    &:hover {
-        color: var(--text-primary);
-        background-color: var(--surface-hover);
-
-        svg { color: var(--text-dim); }
-    }
 }
 
 // User Context Menu
@@ -768,20 +729,18 @@
 
                 .brand-section,
                 .workspace-switcher__trigger,
-                .user-mini,
-                .sidebar-collapse-btn {
+                .user-mini {
                     justify-content: center;
                     gap: 0;
                 }
 
                 .brand-text,
                 .brand-star,
-                .quick-create--header,
+                .sidebar-collapse-toggle,
                 .nav-category,
                 .nav-expand-btn,
                 .workspace-switcher__trigger > span,
                 .workspace-switcher__trigger .ui-select-icon,
-                .sidebar-collapse-btn__label,
                 .user-meta,
                 .user-menu-arrow {
                     display: none;
