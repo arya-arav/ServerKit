@@ -1,0 +1,51 @@
+id: factorio
+name: Factorio Server
+version: "stable"
+description: Factorio headless server. A new map is created on first start; saves, mods and settings live in one volume.
+icon: https://github.com/factoriotools.png
+website: https://github.com/factoriotools/factorio-docker
+documentation: https://github.com/factoriotools/factorio-docker
+categories:
+  - games
+
+variables:
+  - name: GAME_PORT
+    description: Public game port players connect to (UDP). Open it in your cloud firewall.
+    type: port
+    default: "34197"
+
+ports:
+  - port: 34197
+    protocol: udp
+    description: Factorio game port (public)
+
+volumes:
+  - name: factorio_data
+    path: /factorio
+    description: Saves, mods, config and the RCON password
+
+requirements:
+  memory: 2GB
+  storage: 5GB
+
+compose:
+  services:
+    factorio:
+      image: factoriotools/factorio:stable
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${GAME_PORT}:34197/udp"
+      volumes:
+        - factorio_data:/factorio
+
+  volumes:
+    factorio_data:
+
+post_install: |
+  Factorio is starting and creates a new map. Players connect to <server-ip>:${GAME_PORT}.
+  Open UDP ${GAME_PORT} in your cloud firewall and the container firewall allow list.
+  Settings: /factorio/config/server-settings.json in the factorio_data volume.
+  "Matching server connection failed: Missing token" in the logs only means the server is not
+  listed in the public server browser; players can still join by address. To be listed, set your
+  factorio.com username and token in server-settings.json.

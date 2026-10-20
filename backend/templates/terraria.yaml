@@ -1,0 +1,59 @@
+id: terraria
+name: Terraria Server
+version: "latest"
+description: Terraria server with TShock (admin commands, permissions, plugins). Creates a world on first start.
+icon: https://github.com/Pryaxis.png
+website: https://github.com/ryansheehan/terraria
+documentation: https://github.com/ryansheehan/terraria
+categories:
+  - games
+
+variables:
+  - name: GAME_PORT
+    description: Public game port players connect to (TCP). Open it in your cloud firewall.
+    type: port
+    default: "7777"
+  - name: WORLD_NAME
+    description: World file name (letters, numbers, dashes)
+    type: string
+    default: "world"
+  - name: WORLD_SIZE
+    description: Size of a newly created world (1 small, 2 medium, 3 large)
+    type: string
+    default: "2"
+
+ports:
+  - port: 7777
+    protocol: tcp
+    description: Terraria game port (public)
+
+volumes:
+  - name: terraria_worlds
+    path: /root/.local/share/Terraria/Worlds
+    description: World files
+
+requirements:
+  memory: 2GB
+  storage: 2GB
+
+compose:
+  services:
+    terraria:
+      image: ryshe/terraria:latest
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      tty: true
+      stdin_open: true
+      command: ["-world", "/root/.local/share/Terraria/Worlds/${WORLD_NAME}.wld", "-autocreate", "${WORLD_SIZE}"]
+      ports:
+        - "${GAME_PORT}:7777/tcp"
+      volumes:
+        - terraria_worlds:/root/.local/share/Terraria/Worlds
+
+  volumes:
+    terraria_worlds:
+
+post_install: |
+  Terraria (TShock) is starting and creates the world "${WORLD_NAME}".
+  Players connect to <server-ip>:${GAME_PORT}. Open TCP ${GAME_PORT} in your cloud firewall
+  and the container firewall allow list. The first-time setup code is printed in the logs.

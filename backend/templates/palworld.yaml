@@ -1,0 +1,84 @@
+id: palworld
+name: Palworld Server
+version: "latest"
+description: Palworld dedicated server. Runs on ARM servers through Box64 emulation (needs a strong CPU and plenty of memory).
+icon: https://github.com/thijsvanloef.png
+website: https://github.com/thijsvanloef/palworld-server-docker
+documentation: https://palworld-server-docker.loef.dev
+categories:
+  - games
+
+variables:
+  - name: GAME_PORT
+    description: Public game port players connect to (UDP). Open it in your cloud firewall.
+    type: port
+    default: "8211"
+  - name: QUERY_PORT
+    description: Steam query port (UDP)
+    type: port
+    default: "27015"
+  - name: SERVER_NAME
+    description: Server name
+    type: string
+    default: "Palworld Server"
+  - name: PLAYERS
+    description: Maximum players (1-32)
+    type: string
+    default: "16"
+  - name: SERVER_PASSWORD
+    description: Password players need to join (leave empty for none)
+    type: string
+    default: ""
+  - name: ADMIN_PASSWORD
+    description: Admin password (auto-generated)
+    type: password
+    length: 24
+
+ports:
+  - port: 8211
+    protocol: udp
+    description: Palworld game port (public)
+  - port: 27015
+    protocol: udp
+    description: Steam query port (public)
+
+volumes:
+  - name: palworld_data
+    path: /palworld
+    description: Game files and saves
+
+requirements:
+  memory: 16GB
+  storage: 20GB
+
+compose:
+  services:
+    palworld:
+      image: thijsvanloef/palworld-server-docker:latest
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      stop_grace_period: 30s
+      environment:
+        - PUID=1000
+        - PGID=1000
+        - PORT=8211
+        - PLAYERS=${PLAYERS}
+        - SERVER_NAME=${SERVER_NAME}
+        - SERVER_PASSWORD=${SERVER_PASSWORD}
+        - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+        - MULTITHREADING=true
+        - COMMUNITY=false
+        - RCON_ENABLED=true
+      ports:
+        - "${GAME_PORT}:8211/udp"
+        - "${QUERY_PORT}:27015/udp"
+      volumes:
+        - palworld_data:/palworld
+
+  volumes:
+    palworld_data:
+
+post_install: |
+  Palworld is downloading (several GB) and starting; the first start takes a while.
+  Players connect to <server-ip>:${GAME_PORT}. Open UDP ${GAME_PORT} and ${QUERY_PORT}
+  in your cloud firewall and the container firewall allow list.

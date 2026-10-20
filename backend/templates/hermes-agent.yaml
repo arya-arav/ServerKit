@@ -1,0 +1,71 @@
+id: hermes-agent
+name: Hermes Agent
+version: "latest"
+description: Nous Research's autonomous AI agent. It runs on your server, remembers context and talks to you over Telegram, Discord, Slack, WhatsApp, Signal or email.
+icon: https://github.com/NousResearch.png
+website: https://github.com/NousResearch/hermes-agent
+documentation: https://hermes-agent.nousresearch.com/docs
+categories:
+  - ai
+  - llm
+  - agent
+  - automation
+
+variables:
+  - name: HTTP_PORT
+    description: Port for the Hermes dashboard (auto-assigned, loopback only)
+    type: port
+    default: "9119"
+    hidden: true
+
+ports:
+  - port: 9119
+    protocol: tcp
+    description: Dashboard (private; reach it through an SSH tunnel)
+
+volumes:
+  - name: hermes_data
+    path: /opt/data
+    description: Configuration, memory, sessions and logs
+
+requirements:
+  memory: 2GB
+  storage: 5GB
+
+compose:
+  services:
+    gateway:
+      image: nousresearch/hermes-agent:latest
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      # As in Hermes' own compose file: host networking, so the dashboard can
+      # bind loopback (Hermes refuses non-loopback binds without dashboard auth).
+      network_mode: host
+      command: ["gateway", "run"]
+      volumes:
+        - hermes_data:/opt/data
+    dashboard:
+      image: nousresearch/hermes-agent:latest
+      container_name: ${APP_NAME}-dashboard
+      restart: unless-stopped
+      depends_on:
+        - gateway
+      # Loopback only (127.0.0.1 on the host): the dashboard has no login of its own.
+      network_mode: host
+      command: ["dashboard", "--host", "127.0.0.1", "--port", "${HTTP_PORT}", "--no-open"]
+      volumes:
+        - hermes_data:/opt/data
+
+  volumes:
+    hermes_data:
+
+post_install: |
+  Hermes Agent is installed. Set it up (model provider, API key, messaging channels):
+    docker exec -it ${APP_NAME} hermes setup
+    docker exec -it ${APP_NAME} hermes gateway setup
+  then restart the service.
+
+  The dashboard has no login, so it is only reachable from the server itself.
+  Open it from your computer through an SSH tunnel:
+    ssh -L 9119:127.0.0.1:${HTTP_PORT} <user>@<server>   then visit http://localhost:9119
+  Do not add a public domain to it unless it sits behind an access gate (e.g. Cloudflare Access).

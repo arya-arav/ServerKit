@@ -1,0 +1,72 @@
+id: minecraft-bedrock
+name: Minecraft Bedrock Server
+version: "latest"
+description: Minecraft Bedrock Edition server for phones, consoles and Windows players. Runs on ARM servers too.
+icon: https://github.com/itzg.png
+website: https://github.com/itzg/docker-minecraft-bedrock-server
+documentation: https://github.com/itzg/docker-minecraft-bedrock-server
+categories:
+  - games
+  - minecraft
+
+variables:
+  - name: GAME_PORT
+    description: Public game port players connect to (UDP). Open it in your cloud firewall.
+    type: port
+    default: "19132"
+  - name: SERVER_NAME
+    description: Server name shown to players
+    type: string
+    default: "Bedrock Server"
+  - name: GAME_MODE
+    description: Game mode (survival, creative, adventure)
+    type: string
+    default: "survival"
+  - name: DIFFICULTY
+    description: Difficulty (peaceful, easy, normal, hard)
+    type: string
+    default: "normal"
+  - name: MAX_PLAYERS
+    description: Maximum players
+    type: string
+    default: "10"
+
+ports:
+  - port: 19132
+    protocol: udp
+    description: Bedrock game port (public)
+
+volumes:
+  - name: bedrock_data
+    path: /data
+    description: Worlds and configuration
+
+requirements:
+  memory: 2GB
+  storage: 5GB
+
+compose:
+  services:
+    bedrock:
+      image: itzg/minecraft-bedrock-server:latest
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      tty: true
+      stdin_open: true
+      environment:
+        - EULA=TRUE
+        - SERVER_NAME=${SERVER_NAME}
+        - GAMEMODE=${GAME_MODE}
+        - DIFFICULTY=${DIFFICULTY}
+        - MAX_PLAYERS=${MAX_PLAYERS}
+      ports:
+        - "${GAME_PORT}:19132/udp"
+      volumes:
+        - bedrock_data:/data
+
+  volumes:
+    bedrock_data:
+
+post_install: |
+  Bedrock server is starting. Players add a server with address <server-ip> and port ${GAME_PORT}.
+  Open UDP ${GAME_PORT} in your cloud firewall and the container firewall allow list.

@@ -1,0 +1,92 @@
+id: minecraft-java
+name: Minecraft Java Server
+version: "latest"
+description: Minecraft Java Edition server (Paper by default) with the version, memory, player limit and game mode you choose.
+icon: https://github.com/itzg.png
+website: https://github.com/itzg/docker-minecraft-server
+documentation: https://docker-minecraft-server.readthedocs.io
+categories:
+  - games
+  - minecraft
+
+variables:
+  - name: GAME_PORT
+    description: Public game port players connect to (TCP). Open it in your cloud firewall.
+    type: port
+    default: "25565"
+  - name: SERVER_TYPE
+    description: Server type (PAPER, VANILLA, FABRIC, FORGE, PURPUR)
+    type: string
+    default: "PAPER"
+  - name: MC_VERSION
+    description: Minecraft version (LATEST or e.g. 1.21.4)
+    type: string
+    default: "LATEST"
+  - name: MEMORY
+    description: Java heap size (e.g. 4G)
+    type: string
+    default: "4G"
+  - name: MAX_PLAYERS
+    description: Maximum players
+    type: string
+    default: "20"
+  - name: GAME_MODE
+    description: Default game mode (survival, creative, adventure)
+    type: string
+    default: "survival"
+  - name: MOTD
+    description: Message shown in the server list
+    type: string
+    default: "A Minecraft server"
+  - name: RCON_PASSWORD
+    description: RCON password for admin commands (auto-generated)
+    type: password
+    length: 24
+
+ports:
+  - port: 25565
+    protocol: tcp
+    description: Minecraft game port (public)
+
+volumes:
+  - name: mc_data
+    path: /data
+    description: World, configuration, plugins and mods
+
+requirements:
+  memory: 6GB
+  storage: 20GB
+
+compose:
+  services:
+    minecraft:
+      image: itzg/minecraft-server:latest
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      tty: true
+      stdin_open: true
+      environment:
+        - EULA=TRUE
+        - TYPE=${SERVER_TYPE}
+        - VERSION=${MC_VERSION}
+        - MEMORY=${MEMORY}
+        - MAX_PLAYERS=${MAX_PLAYERS}
+        - MODE=${GAME_MODE}
+        - MOTD=${MOTD}
+        - ENABLE_RCON=true
+        - RCON_PASSWORD=${RCON_PASSWORD}
+      ports:
+        - "${GAME_PORT}:25565/tcp"
+      volumes:
+        - mc_data:/data
+
+  volumes:
+    mc_data:
+
+post_install: |
+  Minecraft server is starting (the first start downloads the server, about a minute).
+  Players connect to <server-ip>:${GAME_PORT}. Open TCP ${GAME_PORT} in your cloud firewall
+  and the server's container firewall allow list.
+
+  Admin console:
+    docker exec -it ${APP_NAME} rcon-cli

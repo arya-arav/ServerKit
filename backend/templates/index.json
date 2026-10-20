@@ -2,7 +2,7 @@
   "name": "serverkit-official",
   "schema_version": "1.0",
   "generated_at": "2026-07-25T20:06:08.123735",
-  "count": 122,
+  "count": 129,
   "templates": [
     {
       "id": "actualbudget",
@@ -319,6 +319,16 @@
       ]
     },
     {
+      "id": "factorio",
+      "name": "Factorio Server",
+      "version": "stable",
+      "description": "Factorio headless server. A new map is created on first start; saves, mods and settings live in one volume.",
+      "icon": "https://github.com/factoriotools.png",
+      "categories": [
+        "games"
+      ]
+    },
+    {
       "id": "filebrowser",
       "name": "File Browser",
       "version": "2.27",
@@ -458,6 +468,19 @@
         "cms",
         "flat-file",
         "blog"
+      ]
+    },
+    {
+      "id": "hermes-agent",
+      "name": "Hermes Agent",
+      "version": "latest",
+      "description": "Nous Research's autonomous AI agent. It runs on your server, remembers context and talks to you over Telegram, Discord, Slack, WhatsApp, Signal or email.",
+      "icon": "https://github.com/NousResearch.png",
+      "categories": [
+        "ai",
+        "llm",
+        "agent",
+        "automation"
       ]
     },
     {
@@ -761,6 +784,28 @@
       ]
     },
     {
+      "id": "minecraft-bedrock",
+      "name": "Minecraft Bedrock Server",
+      "version": "latest",
+      "description": "Minecraft Bedrock Edition server for phones, consoles and Windows players. Runs on ARM servers too.",
+      "icon": "https://github.com/itzg.png",
+      "categories": [
+        "games",
+        "minecraft"
+      ]
+    },
+    {
+      "id": "minecraft-java",
+      "name": "Minecraft Java Server",
+      "version": "latest",
+      "description": "Minecraft Java Edition server (Paper by default) with the version, memory, player limit and game mode you choose.",
+      "icon": "https://github.com/itzg.png",
+      "categories": [
+        "games",
+        "minecraft"
+      ]
+    },
+    {
       "id": "miniflux",
       "name": "Miniflux",
       "version": "1.0",
@@ -1014,6 +1059,19 @@
       ]
     },
     {
+      "id": "openclaw",
+      "name": "OpenClaw",
+      "version": "latest",
+      "description": "Self-hosted personal AI agent with a web Control UI. It connects to your chat apps and uses the model provider you choose.",
+      "icon": "https://github.com/openclaw.png",
+      "categories": [
+        "ai",
+        "llm",
+        "agent",
+        "automation"
+      ]
+    },
+    {
       "id": "otel-collector",
       "name": "OpenTelemetry Collector",
       "version": "0.120",
@@ -1035,6 +1093,16 @@
         "productivity",
         "wiki",
         "collaboration"
+      ]
+    },
+    {
+      "id": "palworld",
+      "name": "Palworld Server",
+      "version": "latest",
+      "description": "Palworld dedicated server. Runs on ARM servers through Box64 emulation (needs a strong CPU and plenty of memory).",
+      "icon": "https://github.com/thijsvanloef.png",
+      "categories": [
+        "games"
       ]
     },
     {
@@ -1501,6 +1569,16 @@
         "storage",
         "sync",
         "backup"
+      ]
+    },
+    {
+      "id": "terraria",
+      "name": "Terraria Server",
+      "version": "latest",
+      "description": "Terraria server with TShock (admin commands, permissions, plugins). Creates a world on first start.",
+      "icon": "https://github.com/Pryaxis.png",
+      "categories": [
+        "games"
       ]
     },
     {

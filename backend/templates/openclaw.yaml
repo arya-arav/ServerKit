@@ -1,0 +1,93 @@
+id: openclaw
+name: OpenClaw
+version: "latest"
+description: Self-hosted personal AI agent with a web Control UI. It connects to your chat apps and uses the model provider you choose.
+icon: https://github.com/openclaw.png
+website: https://openclaw.ai
+documentation: https://docs.openclaw.ai/install/docker
+categories:
+  - ai
+  - llm
+  - agent
+  - automation
+
+variables:
+  - name: HTTP_PORT
+    description: Port for the OpenClaw gateway and Control UI (auto-assigned, loopback only)
+    type: port
+    default: "18789"
+    hidden: true
+  - name: OPENCLAW_GATEWAY_TOKEN
+    description: Token for logging in to the Control UI (auto-generated; stored in the app folder .env)
+    type: random
+    length: 48
+  - name: TZ
+    description: Time zone
+    type: string
+    default: "UTC"
+
+ports:
+  - port: 18789
+    protocol: tcp
+    description: Gateway and Control UI
+
+volumes:
+  - name: openclaw_state
+    path: /home/node/.openclaw
+    description: Configuration, state and workspace
+
+requirements:
+  memory: 2GB
+  storage: 10GB
+
+compose:
+  services:
+    gateway:
+      image: ghcr.io/openclaw/openclaw:latest
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      init: true
+      environment:
+        - HOME=/home/node
+        - OPENCLAW_HOME=/home/node
+        - OPENCLAW_STATE_DIR=/home/node/.openclaw
+        - OPENCLAW_CONFIG_PATH=/home/node/.openclaw/openclaw.json
+        - OPENCLAW_CONFIG_DIR=/home/node/.openclaw
+        - OPENCLAW_WORKSPACE_DIR=/home/node/.openclaw/workspace
+        - OPENCLAW_GATEWAY_PORT=18789
+        - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+        - OPENCLAW_DISABLE_BONJOUR=1
+        - TZ=${TZ}
+      # A fresh install refuses to start until gateway.mode is set (the official
+      # setup script writes it first). Seed it once; never overwrite later edits.
+      command:
+        - sh
+        - -c
+        - >-
+          node dist/index.js config get gateway.mode >/dev/null 2>&1 || {
+          node dist/index.js config set gateway.mode local &&
+          node dist/index.js config set gateway.bind lan &&
+          node dist/index.js config set gateway.controlUi.allowedOrigins
+          '["http://127.0.0.1:${HTTP_PORT}","http://localhost:${HTTP_PORT}"]' --strict-json; } &&
+          exec node dist/index.js gateway --bind lan --port 18789
+      # Loopback only: the host's nginx serves the domain over HTTPS.
+      ports:
+        - "127.0.0.1:${HTTP_PORT}:18789"
+      volumes:
+        - openclaw_state:/home/node/.openclaw
+      cap_drop:
+        - NET_RAW
+        - NET_ADMIN
+      security_opt:
+        - no-new-privileges:true
+
+  volumes:
+    openclaw_state:
+
+post_install: |
+  OpenClaw is running. Finish setup (model provider, API key, channels):
+    docker exec -it ${APP_NAME} node dist/index.js onboard
+  Log in to the Control UI with the gateway token: OPENCLAW_GATEWAY_TOKEN in the .env file of this app folder.
+
+  To use the Control UI on a domain, add the domain to this service with HTTPS, then allow it:
+    docker exec -it ${APP_NAME} node dist/index.js config set gateway.controlUi.allowedOrigins '["https://your.domain"]'
