@@ -205,11 +205,11 @@ class TestBuiltins:
         # the monitor sweep, security-feed check, recycle-bin retention and the
         # fleet threshold check) + login-link/SSO reapers + drift/FIM/bandwidth
         # sweeps + the host doctor sweep AND the fleet doctor sweep (plan 26)
-        # + the setup-health nag (plan 22).
-        assert ScheduledJob.query.count() == 28
+        # + the setup-health nag (plan 22) + the weekly Cloudflare IP refresh (fork).
+        assert ScheduledJob.query.count() == 29
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 28
+        assert ScheduledJob.query.count() == 29
 
 
 class TestApi:
