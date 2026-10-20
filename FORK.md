@@ -81,7 +81,7 @@
   - **The rail stays narrow:** it no longer opens over the page on hover; each icon shows its name as a tooltip instead.
   - **App top bar:** a slim bar across the page column carries the notification bell and the account menu at the top right. Page content starts below it, and full-page tools subtract its height.
   - **Where the account stays:** on mobile and in the top-bar layout there is no app top bar, so the account stays in the sidebar there.
-  - **The "+" button:** the brand row's quick-create button is gone; the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+". The brand row's "Star on GitHub" link is gone too.
+  - **The "+" button:** the brand row's quick-create button is gone; the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+". The brand row's "Star on GitHub" link is gone too, and toasts pop up at the bottom right (above the status bar) instead of over the top bar.
   - **Setup health icon** (`SetupHealthIndicator.jsx`, admins): a shield beside the bell, green when setup is complete, amber/red with a count when items are open; it opens the Doctor. The dashboard's full-width "Setup complete" strip is gone, and its card only appears when there is something to review.
 - **First/last name and profile picture** (`User.first_name`, `last_name`, `avatar`, migration `112_user_profile_name_avatar`; `app/utils/profile.py`; Settings → Profile).
   - **Name:** the top bar shows "First Last" (`display_name`) instead of the username when a name is set.
