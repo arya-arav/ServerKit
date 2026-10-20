@@ -56,6 +56,11 @@
   - **Never touched:** port 22.
   - Tests: `backend/tests/test_cloudflare_only.py`.
 - **"Backups scheduled" counts schedules** (`SetupHealthService._backup_policy_item`). Upstream only counted per-service backup policies, so a server backed up by a schedule from Backups → Schedules still got "nothing is being backed up". Tests: the `backup_policy` cases in `backend/tests/test_setup_health.py`.
+- **Off-site backup upkeep** (`BackupService._cleanup_remote`, `_record_remote`).
+  - **Cleanup:** the daily cleanup now also deletes off-site copies older than the retention (`remote_retention_days`, defaulting to `retention_days`). Upstream pruned local copies only, so the bucket grew forever. Only objects under the destination's path prefix are touched, and nothing is swept when no prefix is set.
+  - **Status:** a file backup's metadata now says `synced` after a successful upload; upstream rewrote it only for directory backups.
+  - **No double upload:** a scheduled upload is skipped when auto-upload already sent the backup.
+  - Tests: `backend/tests/test_backup_offsite_upkeep.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

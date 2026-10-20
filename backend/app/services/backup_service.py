@@ -656,10 +656,17 @@ class BackupService:
                 except Exception:
                     pass
 
+            remote_days = config.get('remote_retention_days', retention_days)
+            remote = cls._cleanup_remote(datetime.now(timezone.utc) - timedelta(days=remote_days))
+            message = f'Deleted {deleted} old backup(s)'
+            if remote.get('deleted'):
+                message += f" and {remote['deleted']} off-site copy(ies)"
             return {
                 'success': True,
                 'deleted_count': deleted,
-                'message': f'Deleted {deleted} old backup(s)'
+                'remote_deleted_count': remote.get('deleted', 0),
+                'remote_error': remote.get('error'),
+                'message': message,
             }
 
         except Exception as e:
@@ -743,6 +750,36 @@ class BackupService:
         ) for entry in config.get('schedules', [])]
 
     @classmethod
+    def _cleanup_remote(cls, cutoff: datetime) -> Dict:
+        """Delete off-site copies last modified before ``cutoff``.
+
+        Only objects under the destination's path prefix are considered, and
+        nothing runs without one, so a shared bucket is never swept. Upstream
+        pruned local copies only and the bucket grew forever. Fork: arya-arav/ServerKit.
+        """
+        try:
+            from app.services.storage_provider_service import StorageProviderService
+            config = StorageProviderService.get_config()
+            provider = config.get('provider', 'local')
+            if provider == 'local':
+                return {'deleted': 0}
+            if not (config.get(provider) or {}).get('path_prefix', '').strip('/'):
+                return {'deleted': 0, 'error': 'no path prefix set; off-site copies left alone'}
+            listing = StorageProviderService.list_files()
+            if not listing.get('success'):
+                return {'deleted': 0, 'error': listing.get('error')}
+            deleted = 0
+            for obj in listing.get('files', []):
+                if datetime.fromisoformat(obj['last_modified']) >= cutoff:
+                    continue
+                if StorageProviderService.delete_file(obj['key']).get('success'):
+                    deleted += 1
+            return {'deleted': deleted}
+        except Exception as e:  # noqa: BLE001 - never fails the local cleanup
+            logger.warning('Off-site backup cleanup failed: %s', e)
+            return {'deleted': 0, 'error': str(e)}
+
+    @classmethod
     def get_backup_stats(cls) -> Dict:
         """Get backup statistics."""
         backups = cls.list_backups()
@@ -814,13 +851,7 @@ class BackupService:
                 result = StorageProviderService.upload_file(backup_path)
 
             if result.get('success'):
-                backup_info['remote_status'] = 'synced'
-                backup_info['remote_key'] = result.get('remote_key', '')
-                # Update metadata if it's a directory backup
-                meta_path = os.path.join(backup_path, 'backup.json') if os.path.isdir(backup_path) else None
-                if meta_path and os.path.exists(meta_path):
-                    with open(meta_path, 'w') as f:
-                        json.dump(backup_info, f, indent=2)
+                cls._record_remote(backup_path, backup_info, result)
             else:
                 # The row stays 'local' with its upload button; say why.
                 logger.warning('Auto-upload of %s failed: %s', backup_path, result.get('error'))
@@ -886,6 +917,30 @@ class BackupService:
             raise RuntimeError(f"tar failed: {result['error'][:300]}")
         return {'archive': archive, 'size': os.path.getsize(archive),
                 'compression': program, 'kind': kind, 'incremental': kind == 'incremental', 'ext': ext}
+
+    @staticmethod
+    def _meta_path_for(backup_path: str) -> Optional[str]:
+        """The metadata file that describes a backup artifact, if it has one."""
+        if os.path.isdir(backup_path):
+            return os.path.join(backup_path, 'backup.json')
+        base = backup_path[:-len('.enc')] if backup_path.endswith('.enc') else backup_path
+        if base.endswith('.tar.gz'):
+            return base[:-len('.tar.gz')] + '.json'
+        return None
+
+    @classmethod
+    def _record_remote(cls, backup_path: str, backup_info: Dict, upload: Dict) -> None:
+        """Mark a backup as synced off-site, in memory and in its metadata file.
+
+        Upstream rewrote the metadata of directory backups only, so a file
+        backup listed as "local" even after a successful upload. Fork: arya-arav/ServerKit.
+        """
+        backup_info['remote_status'] = 'synced'
+        backup_info['remote_key'] = upload.get('remote_key', '')
+        meta_path = cls._meta_path_for(backup_path)
+        if meta_path and os.path.exists(meta_path):
+            with open(meta_path, 'w') as f:
+                json.dump(backup_info, f, indent=2)
 
     @classmethod
     def restore_incremental_chain(cls, archives, restore_path):
@@ -1060,6 +1115,8 @@ class BackupService:
     def _upload_scheduled(result: Dict) -> Dict:
         from app.services.storage_provider_service import StorageProviderService
         backup_path = result.get('path') or result.get('backup', {}).get('path')
+        if result.get('backup', {}).get('remote_status') == 'synced':
+            return result  # auto-upload already sent it
         if not backup_path:
             upload = {'success': False, 'error': 'the backup reported no path'}
         elif os.path.isdir(backup_path):
@@ -1067,6 +1124,8 @@ class BackupService:
         else:
             upload = StorageProviderService.upload_file(backup_path)
         if upload.get('success'):
+            if result.get('backup') is not None:
+                BackupService._record_remote(backup_path, result['backup'], upload)
             return result
         return {**result, 'success': False,
                 'error': f"Saved locally at {backup_path}, but the offsite upload "
