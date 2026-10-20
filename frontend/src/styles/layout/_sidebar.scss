@@ -688,10 +688,27 @@
 
 // ============================================
 // COMPACT RAIL LAYOUT  —  [data-layout="rail"]
-// A 64px icon-only rail that expands to the full sidebar on hover/focus.
+// A 64px icon-only rail. The page column narrows and stretches with it: no
+// hover overlay (fork: the rail used to open over the page on hover/focus).
 // Desktop only: below $breakpoint-md the off-canvas drawer is unchanged.
 // ============================================
 @media (min-width: ($breakpoint-md + 1)) {
+    // Collapse and expand animate in both layouts, page column included.
+    .sidebar {
+        transition: width 0.2s $ease-out-quint;
+    }
+
+    .main-content {
+        transition: margin-left 0.2s $ease-out-quint;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .sidebar,
+        .main-content {
+            transition: none;
+        }
+    }
+
     [data-layout="rail"] {
         .main-content {
             margin-left: $sidebar-rail-width;
@@ -699,52 +716,51 @@
 
         .sidebar {
             width: $sidebar-rail-width;
-            transition: width 0.18s $ease-out-quint;
+            padding: 0 $space-2;
 
-            @media (prefers-reduced-motion: reduce) {
-                transition: none;
+            // Bare icon rail. font-size: 0 hides nav text while keeping it in
+            // the accessibility tree; fixed-size SVG icons stay. Each item
+            // carries its name as a tooltip (Sidebar.jsx).
+            .nav-item {
+                justify-content: center;
+                gap: 0;
+                font-size: 0;
             }
 
-            // Expand to the full sidebar while hovered or keyboard-focused. The
-            // panel is position: fixed, so it overlays content instead of
-            // pushing it — the .main-content offset stays at the rail width.
-            &:hover,
-            &:focus-within {
-                width: $sidebar-width;
-                box-shadow: $shadow-overlay;
+            .nav-sub-item {
+                padding-left: 0.625rem;
             }
 
-            // Collapsed state: bare icon rail. font-size: 0 hides nav text while
-            // keeping it in the accessibility tree; fixed-size SVG icons stay.
-            &:not(:hover):not(:focus-within) {
-                .nav-item {
-                    justify-content: center;
-                    gap: 0;
-                    font-size: 0;
-                }
+            // Logo above the Expand toggle.
+            .brand-section {
+                flex-direction: column;
+                justify-content: center;
+                height: auto;
+                padding: $space-3 0;
+                gap: $space-2;
+            }
 
-                .nav-sub-item {
-                    padding-left: 0.625rem;
-                }
+            .workspace-switcher__trigger,
+            .user-mini {
+                justify-content: center;
+                gap: 0;
+            }
 
-                .brand-section,
-                .workspace-switcher__trigger,
-                .user-mini {
-                    justify-content: center;
-                    gap: 0;
-                }
+            .brand-text,
+            .brand-star,
+            .nav-category,
+            .nav-expand-btn,
+            .workspace-switcher__trigger > span,
+            .workspace-switcher__trigger .ui-select-icon,
+            .user-meta,
+            .user-menu-arrow {
+                display: none;
+            }
 
-                .brand-text,
-                .brand-star,
-                .sidebar-collapse-toggle,
-                .nav-category,
-                .nav-expand-btn,
-                .workspace-switcher__trigger > span,
-                .workspace-switcher__trigger .ui-select-icon,
-                .user-meta,
-                .user-menu-arrow {
-                    display: none;
-                }
+            // The account menu cannot fit inside 64px; let it open wider.
+            .user-context-menu {
+                right: auto;
+                width: 240px; // geometry: account menu width beside the rail
             }
         }
     }

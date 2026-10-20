@@ -42,12 +42,7 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
         <SharedButton variant="unstyled"
             type="button"
             className="sidebar-collapse-toggle"
-            onClick={(e) => {
-                toggleCollapsed();
-                // The rail stays open while it holds focus; after a mouse
-                // click, let go so it folds away at once (keyboard keeps focus).
-                if (e.detail > 0) e.currentTarget.blur();
-            }}
+            onClick={toggleCollapsed}
             aria-pressed={collapsed}
             aria-label={collapsed
                 ? t('nav.expandSidebarLong', 'Expand the sidebar')
@@ -305,6 +300,7 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
                         to={item.route}
                         className={({ isActive }) => `nav-item ${isActive || groupActive ? 'active' : ''}`}
                         end={item.end || hasChildren}
+                        title={collapsed && collapsible ? label(item) : undefined}
                     >
                         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             aria-hidden="true" focusable="false"
@@ -331,6 +327,7 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
                         key={sub.id}
                         to={sub.route}
                         className={({ isActive }) => `nav-item nav-sub-item ${isActive ? 'active' : ''}`}
+                        title={collapsed && collapsible ? label(sub) : undefined}
                     >
                         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             aria-hidden="true" focusable="false"

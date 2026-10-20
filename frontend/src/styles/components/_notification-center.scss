@@ -313,7 +313,7 @@
 // Compact rail layout: when collapsed there isn't room for the bell beside the
 // avatar, so stack them vertically.
 @media (min-width: ($breakpoint-md + 1)) {
-    [data-layout="rail"] .sidebar:not(:hover):not(:focus-within) .sidebar-footer__row {
+    [data-layout="rail"] .sidebar .sidebar-footer__row {
         flex-direction: column;
         align-items: center;
         gap: $space-tight;

@@ -538,17 +538,14 @@
         .shell-panel,
         .operations-dock.operations-dock--statusbar {
             inset-inline-start: $sidebar-rail-width;
-            transition: inset-inline-start 0.18s $ease-out-quint;
         }
+    }
 
-        .sidebar:hover,
-        .sidebar:focus-within {
-            ~ .global-statusbar,
-            ~ .shell-panel,
-            ~ .operations-dock.operations-dock--statusbar {
-                inset-inline-start: $sidebar-width;
-            }
-        }
+    // Slide with the sidebar when it collapses or expands.
+    .global-statusbar,
+    .shell-panel,
+    .operations-dock.operations-dock--statusbar {
+        transition: inset-inline-start 0.2s $ease-out-quint;
     }
 
     [data-layout='topbar'] {
@@ -632,9 +629,7 @@
     .shell-panel,
     .operations-dock.operations-dock--statusbar .operations-dock__panel { animation: none; }
 
-    [data-layout='rail'] {
-        .global-statusbar,
-        .shell-panel,
-        .operations-dock.operations-dock--statusbar { transition: none; }
-    }
+    .global-statusbar,
+    .shell-panel,
+    .operations-dock.operations-dock--statusbar { transition: none; }
 }
