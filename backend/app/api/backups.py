@@ -519,6 +519,14 @@ def update_schedule(schedule_id):
     return jsonify(result), 200 if result.get('success') else 400
 
 
+@backups_bp.route('/schedules/<schedule_id>/run', methods=['POST'])
+@admin_required
+def run_schedule(schedule_id):
+    """Run a backup schedule now, in the background. Fork: arya-arav/ServerKit."""
+    result = BackupService.run_schedule_now(schedule_id)
+    return jsonify(result), 202 if result['success'] else 404
+
+
 @backups_bp.route('/schedules/<schedule_id>', methods=['DELETE'])
 @admin_required
 def remove_schedule(schedule_id):

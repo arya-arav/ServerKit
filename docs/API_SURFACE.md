@@ -834,6 +834,7 @@ Regenerate (backend/):
 - `POST /backups/restore/application`
 - `POST /backups/restore/database`
 - `POST /backups/schedules`
+- `POST /backups/schedules/{schedule_id}/run`
 - `POST /backups/storage/test`
 - `POST /backups/upload`
 - `POST /backups/verify`

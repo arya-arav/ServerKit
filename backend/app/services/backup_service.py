@@ -1011,6 +1011,24 @@ class BackupService:
         if current_time == '00:00':
             cls.cleanup_old_backups()
 
+    @classmethod
+    def run_schedule_now(cls, schedule_id: str) -> Dict:
+        """Queue one run of a schedule outside its timetable. Fork: arya-arav/ServerKit."""
+        from app.jobs.service import JobService
+        sched = next((s for s in cls.get_config().get('schedules', [])
+                      if s.get('id') == schedule_id), None)
+        if not sched:
+            return {'success': False, 'error': 'Schedule not found'}
+        job = JobService.enqueue(
+            BACKUP_JOB_KIND,
+            payload={'schedule_id': schedule_id},
+            max_attempts=1,
+            owner_type='backup_schedule',
+            owner_id=schedule_id,
+        )
+        return {'success': True, 'job_id': job.id,
+                'message': f"Backup '{sched.get('name', schedule_id)}' started"}
+
     @staticmethod
     def run_backup_job(job):
         """Unified-job handler for ``backup.run`` — execute one scheduled backup.

@@ -359,6 +359,17 @@ const Backups = () => {
         await scheduleStore.remove(scheduleId);
     };
 
+    const handleRunSchedule = async (schedule) => {
+        try {
+            await api.runBackupSchedule(schedule.id);
+            toast.success(t('app.backups.scheduleStarted', "Backup '{{name}}' started", { name: schedule.name }));
+            // The run is a background job; pick up last run/status once it has had time to finish.
+            setTimeout(() => loadData(), 15000);
+        } catch (err) {
+            toastError(toast, t('app.backups.couldntRunSchedule', "Couldn't start the backup."), err);
+        }
+    };
+
     const handleSaveConfig = async (e) => {
         e.preventDefault();
         try {
@@ -823,6 +834,7 @@ const Backups = () => {
                             remoteLabel={PROVIDER_LABELS[storageConfig?.provider] || 'Local disk'}
                             onToggle={scheduleStore.toggle}
                             onRemove={handleRemoveSchedule}
+                            onRun={handleRunSchedule}
                         />
                     )}
                 </>

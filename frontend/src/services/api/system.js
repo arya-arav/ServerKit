@@ -568,6 +568,10 @@ export async function addBackupSchedule(name, backupType, target, scheduleTime, 
     });
 }
 
+export async function runBackupSchedule(scheduleId) {
+    return this.request(`/backups/schedules/${scheduleId}/run`, { method: 'POST' });
+}
+
 export async function updateBackupSchedule(scheduleId, updates) {
     return this.request(`/backups/schedules/${scheduleId}`, {
         method: 'PUT',

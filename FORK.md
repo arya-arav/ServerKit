@@ -61,6 +61,7 @@
   - **Status:** a file backup's metadata now says `synced` after a successful upload; upstream rewrote it only for directory backups.
   - **No double upload:** a scheduled upload is skipped when auto-upload already sent the backup.
   - Tests: `backend/tests/test_backup_offsite_upkeep.py`.
+- **Run a backup schedule now** (`POST /api/v1/backups/schedules/<id>/run`, `BackupService.run_schedule_now`; play button on Backups → Schedules). Queues one background run of the schedule outside its timetable. Upstream's table already had the button slot but nothing behind it. Tests: `backend/tests/test_backup_run_now.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
