@@ -36,6 +36,7 @@ function RecipeIcon({ icon }) {
     return <Icon size={17} />;
 }
 
+const MB = 1024 * 1024;
 const GB = 1024 * 1024 * 1024;
 
 function preflight(requirements, server) {
@@ -52,9 +53,9 @@ function preflight(requirements, server) {
     if (requirements.memoryMB) {
         rows.push({
             key: 'mem',
-            need: formatBytes(requirements.memoryMB * GB, { decimals: 0 }),
+            need: formatBytes(requirements.memoryMB * MB, { decimals: 0 }),
             have: formatBytes(server.total_memory, { decimals: 0 }),
-            ok: !!server.total_memory && server.total_memory >= requirements.memoryMB * GB,
+            ok: !!server.total_memory && server.total_memory >= requirements.memoryMB * MB,
         });
     }
     if (requirements.diskGB) {
@@ -143,7 +144,7 @@ export default function Recipes() {
     };
 
     return (
-        <div className="recipes-page">
+        <div className="sk-tabgroup__inner recipes-page">
             <div className="recipes-page__head">
                 <p className="recipes-page__lede">
                     {t('app.recipes.lede', 'Ready-to-go installers that run as real operations: probe, derive, apply, verify. Secrets are asked for mid-run and kept in the vault.')}
@@ -165,7 +166,8 @@ export default function Recipes() {
                         <SharedButton variant="unstyled"
                             key={cat}
                             type="button"
-                            className={`sk-pill${category === cat ? ' is-active' : ''}`}
+                            className={`recipes-page__cat${category === cat ? ' is-active' : ''}`}
+                            aria-pressed={category === cat}
                             onClick={() => setCategory(cat)}
                         >
                             {cat === 'all' ? t('common.labels.all', 'All') : cat}
@@ -214,7 +216,7 @@ export default function Recipes() {
                                     {(recipe.requirements?.cpuCores)
                                         && <span>{recipe.requirements.cpuCores} vCPU</span>}
                                     {(recipe.requirements?.memoryMB)
-                                        && <span>{formatBytes(recipe.requirements.memoryMB * GB, { decimals: 0 })}</span>}
+                                        && <span>{formatBytes(recipe.requirements.memoryMB * MB, { decimals: 0 })}</span>}
                                     {(recipe.requirements?.diskGB)
                                         && <span>{formatBytes(recipe.requirements.diskGB * GB, { decimals: 0 })}</span>}
                                     {(recipe.requirements?.igpu && recipe.requirements.igpu !== 'none')

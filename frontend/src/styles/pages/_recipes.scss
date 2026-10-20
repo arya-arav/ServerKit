@@ -5,6 +5,7 @@
 
     &__head {
         display: flex;
+        flex-wrap: wrap;
         align-items: flex-end;
         gap: $spacing-lg;
         margin-bottom: $spacing-md;
@@ -49,15 +50,25 @@
         gap: $space-2;
         margin-bottom: $spacing-md;
 
-        .sk-pill {
-            cursor: pointer;
-            opacity: 0.72;
+    }
 
-            &.is-active {
-                opacity: 1;
-                border-color: var(--primary-color);
-                color: var(--primary-color);
-            }
+    // Category filter chips (same look as the notification centre's chips).
+    &__cat {
+        height: $control-sm;
+        padding: 0 $space-3;
+        font-size: $text-xs;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-control;
+        background: $bg-card;
+        color: $text-secondary;
+        cursor: pointer;
+
+        &:hover { background: $bg-hover; color: $text-primary; }
+
+        &.is-active {
+            border-color: $accent-primary;
+            background: $accent-glow;
+            color: $accent-primary;
         }
     }
 
