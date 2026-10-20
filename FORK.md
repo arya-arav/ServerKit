@@ -20,6 +20,10 @@
   - **Folder policy:** app folders and subfolders of `/srv`, `/var/www` and `/home/<user>`. It refuses system paths, the jails, and any folder that is or contains a home directory, since that would hand out its `.ssh`.
   - **Actions** only ever touch users recorded by the extension. Deleting an account hands its uploaded files back to the folder owner.
   - **Tests:** `backend/tests/test_sftp_extension.py`.
+- **The panel answers only on its own domain** (`nginx/sites-available/serverkit.conf`, `install.sh`, `scripts/update.sh`). Upstream made the panel the nginx `default_server`. Any hostname pointing at the server with no site of its own (a DNS record added before the domain was attached to a service, a removed domain, a scanner's random Host) showed the panel login.
+  - In secure (HTTPS) mode a catch-all default server now drops unknown names: `return 444` on :80, while ACME challenges still pass, and `ssl_reject_handshake` on :443.
+  - The panel blocks use `server_name YOUR_DOMAIN`, which install/update fill in from `/etc/serverkit/panel-domain` together with the certificate path.
+  - HTTP-only installs without a panel domain are unchanged, so first-time setup by IP still works.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.

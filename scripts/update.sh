@@ -1496,7 +1496,10 @@ EOF
         [ -z "$panel_domain" ] && panel_domain="$prior_panel_domain"
 
         if [ -n "$panel_domain" ] && [ -d "$LETSENCRYPT_DIR/live/$panel_domain" ]; then
-            sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|$LETSENCRYPT_DIR/live/$panel_domain/|g" \
+            # The panel answers only on its own name; unknown hosts hit the
+            # catch-all default server instead of the login page.
+            sed -i -e "s|/etc/letsencrypt/live/YOUR_DOMAIN/|$LETSENCRYPT_DIR/live/$panel_domain/|g" \
+                   -e "s|server_name YOUR_DOMAIN;|server_name $panel_domain;|g" \
                 "$NGINX_DIR/sites-available/serverkit.conf"
             ln -sf "$NGINX_DIR/sites-available/serverkit.conf" "$NGINX_DIR/sites-enabled/serverkit.conf"
         else

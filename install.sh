@@ -2327,7 +2327,10 @@ install_nginx_config_for_mode() {
     local nginx_dir="${SERVERKIT_NGINX_DIR:-/etc/nginx}"
     local config_dir="${SERVERKIT_CONFIG_DIR:-/etc/serverkit}"
     if [ "$SSL_MODE" = "secure" ]; then
-        sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$PANEL_DOMAIN/|g" \
+        # The panel answers only on its own name; unknown hosts hit the
+        # catch-all default server instead of the login page.
+        sed -i -e "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$PANEL_DOMAIN/|g" \
+               -e "s|server_name YOUR_DOMAIN;|server_name $PANEL_DOMAIN;|g" \
             "$nginx_dir/sites-available/serverkit.conf"
         ln -sf "$nginx_dir/sites-available/serverkit.conf" "$nginx_dir/sites-enabled/serverkit.conf"
     else
