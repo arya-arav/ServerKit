@@ -92,6 +92,13 @@ class SecurityService:
     # FILE INTEGRITY MONITORING
     # ==========================================
     @classmethod
+    def _is_own_database(cls, file_path: str) -> bool:
+        """The integrity database lives under /etc, which is monitored. It is
+        written after the baseline scan, so every check reported it as a new
+        (or, after a re-baseline, modified) file. Fork: arya-arav/ServerKit."""
+        return os.path.abspath(file_path) == os.path.abspath(cls.INTEGRITY_DB)
+
+    @classmethod
     def initialize_integrity_database(cls, paths: List[str] = None) -> Dict:
         """Create baseline for file integrity monitoring."""
         config = cls.get_config()
@@ -111,6 +118,8 @@ class SecurityService:
                 for root, dirs, files in os.walk(base_path):
                     for filename in files:
                         file_path = os.path.join(root, filename)
+                        if cls._is_own_database(file_path):
+                            continue
                         stat = cls._regular_file_stat(file_path)
                         if stat is None:
                             continue
@@ -161,6 +170,8 @@ class SecurityService:
 
             # Check existing files
             for file_path, expected in database['files'].items():
+                if cls._is_own_database(file_path):
+                    continue  # baselines made before the fork skip still list it
                 if not os.path.exists(file_path):
                     changes['deleted'].append(file_path)
                     continue
@@ -195,6 +206,7 @@ class SecurityService:
                     for filename in files:
                         file_path = os.path.join(root, filename)
                         if (file_path not in database['files']
+                                and not cls._is_own_database(file_path)
                                 and cls._regular_file_stat(file_path) is not None):
                             changes['new'].append(file_path)
 
@@ -408,6 +420,15 @@ class SecurityService:
         NotificationService.send_all(alerts)
 
     @classmethod
+    def _integrity_baseline_time(cls) -> Optional[datetime]:
+        """When the integrity baseline was last taken, or None."""
+        try:
+            with open(cls.INTEGRITY_DB, 'r') as f:
+                return datetime.fromisoformat(json.load(f).get('created_at', ''))
+        except (OSError, ValueError, TypeError):
+            return None
+
+    @classmethod
     def get_security_summary(cls) -> Dict:
         """Get overall security status summary.
 
@@ -424,6 +445,10 @@ class SecurityService:
 
         # Count events by type in last 24 hours
         cutoff = datetime.now() - timedelta(hours=24)
+        # Integrity changes found before the current baseline were reviewed and
+        # accepted when it was taken; counting them kept the posture amber for
+        # up to a day after "Accept". Fork: arya-arav/ServerKit.
+        integrity_cutoff = max(cutoff, cls._integrity_baseline_time() or cutoff)
         recent_malware = 0
         recent_integrity = 0
         recent_suspicious = 0
@@ -436,7 +461,8 @@ class SecurityService:
                     if 'malware' in event_type:
                         recent_malware += 1
                     elif 'integrity' in event_type:
-                        recent_integrity += 1
+                        if event_time > integrity_cutoff:
+                            recent_integrity += 1
                     else:
                         recent_suspicious += 1
             except Exception:
