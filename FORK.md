@@ -66,6 +66,11 @@
   - **How it runs:** the engine (MariaDB/MySQL/Percona or PostgreSQL) comes from the container image, and the dump runs inside the container with the credentials it was started with, so the panel stores no password.
   - **Safety:** a dump without its completion trailer is deleted rather than kept as a backup, and the container and database names are validated before anything runs.
   - Tests: `backend/tests/test_backup_container_db.py`.
+- **Wildcard certificates renew** (`AdvancedSSLService.issue_wildcard_cert`, `DNS_CREDENTIALS_DIR`). certbot records the Cloudflare credentials path in the renewal config and reads it again at every renewal.
+  - **The bug:** upstream wrote the token to a `/tmp` file and deleted it after issuing, so every wildcard certificate failed to renew 60 days later.
+  - **The fix:** the file is now kept at `/etc/letsencrypt/serverkit-dns/cloudflare-<domain>.ini` (folder 700, file 600) and rewritten on every issuance, so a rotated token takes effect.
+  - **Route 53 still has the same gap:** its keys are passed as environment variables that a renewal does not have.
+  - Tests: `TestCloudflareCredentialsFile` in `backend/tests/test_advanced_ssl_hardening.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

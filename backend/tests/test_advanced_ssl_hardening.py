@@ -16,6 +16,7 @@ import pytest
 
 import app.services.advanced_ssl_service as mod
 from app.services.advanced_ssl_service import AdvancedSSLService
+from app.services.advanced_ssl_service import DNS_CREDENTIALS_DIR as REAL_CREDENTIALS_DIR
 from subprocess_stub import FakeProc
 
 
@@ -25,17 +26,31 @@ def _must_not_run_unprivileged(cmd, **kw):
 
 
 @pytest.fixture
-def certbot(monkeypatch):
+def certbot(monkeypatch, tmp_path):
     """run_privileged seam captured; PackageManager and the unprivileged door
-    are both taken out — certbot has no business running unprivileged."""
+    are both taken out — certbot has no business running unprivileged. The
+    DNS credentials folder points at tmp_path."""
     from app.utils.system import PackageManager
 
     monkeypatch.setattr(PackageManager, 'is_available', staticmethod(lambda: False))
     monkeypatch.setattr(mod, 'run_unprivileged', _must_not_run_unprivileged)
+    monkeypatch.setattr(mod, 'DNS_CREDENTIALS_DIR', str(tmp_path / 'serverkit-dns'))
+
+    def write(path, content, mode=None, **kw):
+        with open(path, 'w') as f:
+            f.write(content)
+        if mode and os.name != 'nt':
+            os.chmod(path, int(mode, 8))
+        return {'success': True, 'path': path}
+
+    monkeypatch.setattr(mod, 'write_privileged_file', write)
 
     captured = {}
 
     def fake_run(cmd, **kw):
+        if cmd[:2] == ['install', '-d']:
+            os.makedirs(cmd[-1], exist_ok=True)
+            return FakeProc()
         captured['cmd'] = list(cmd)
         captured['kw'] = kw
         return captured['proc']
@@ -73,46 +88,38 @@ class TestWildcardIssuance:
 
 
 class TestCloudflareCredentialsFile:
-    """The API token sits on disk while certbot runs: the file must be
-    unpredictable, owner-only, and gone afterwards — whatever the outcome."""
+    """certbot records the credentials path in the renewal config and reads it
+    again at every renewal, so the file must outlive the first run — in a
+    root-only folder, owner-only, never in /tmp. Upstream deleted it after
+    issuing and every wildcard certificate failed to renew. Fork: arya-arav/ServerKit."""
 
-    def _run_with_creds_probe(self, monkeypatch, proc):
-        """Replace the fixture responder with one that inspects the
-        credentials file mid-run (the fixture only sees argv afterwards)."""
-        seen = {}
+    def _creds_path(self, certbot):
+        cmd = certbot['cmd']
+        return cmd[cmd.index('--dns-cloudflare-credentials') + 1]
 
-        def fake_run(cmd, **kw):
-            path = cmd[cmd.index('--dns-cloudflare-credentials') + 1]
-            seen['path'] = path
-            seen['existed_during_run'] = os.path.isfile(path)
-            if os.name != 'nt':
-                seen['mode'] = stat.S_IMODE(os.stat(path).st_mode)
-            return proc
-
-        monkeypatch.setattr(mod, 'run_privileged', fake_run)
-        return seen
-
-    def test_credentials_file_lifecycle(self, certbot, monkeypatch):
-        seen = self._run_with_creds_probe(monkeypatch, FakeProc(stdout='Congratulations!'))
+    def test_credentials_file_survives_for_renewals(self, certbot, tmp_path):
+        certbot['proc'] = FakeProc(stdout='Congratulations!')
 
         res = AdvancedSSLService.issue_wildcard_cert(
             'example.com', 'cloudflare', {'api_token': 'tok'})
 
         assert res['success'] is True
-        assert seen['path'] != '/tmp/certbot-cloudflare.ini', 'predictable path'
-        assert seen['existed_during_run'] is True
+        path = self._creds_path(certbot)
+        assert path == str(tmp_path / 'serverkit-dns' / 'cloudflare-example.com.ini')
+        assert REAL_CREDENTIALS_DIR.startswith('/etc/letsencrypt/')
+        with open(path) as f:
+            assert f.read() == 'dns_cloudflare_api_token = tok\n'
         if os.name != 'nt':
-            assert seen['mode'] == 0o600
-        assert not os.path.exists(seen['path']), 'credentials file left behind'
+            assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
 
-    def test_credentials_file_is_deleted_even_when_certbot_fails(self, certbot, monkeypatch):
-        seen = self._run_with_creds_probe(monkeypatch, FakeProc(returncode=1, stderr='boom'))
+    def test_a_new_token_replaces_the_old_one(self, certbot):
+        certbot['proc'] = FakeProc(stdout='Congratulations!')
+        AdvancedSSLService.issue_wildcard_cert('example.com', 'cloudflare', {'api_token': 'old'})
 
-        res = AdvancedSSLService.issue_wildcard_cert(
-            'example.com', 'cloudflare', {'api_token': 'tok'})
+        AdvancedSSLService.issue_wildcard_cert('example.com', 'cloudflare', {'api_token': 'new'})
 
-        assert res['success'] is False
-        assert not os.path.exists(seen['path']), 'failed run left credentials behind'
+        with open(self._creds_path(certbot)) as f:
+            assert f.read() == 'dns_cloudflare_api_token = new\n'
 
 
 class TestSanIssuance:

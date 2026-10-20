@@ -1,9 +1,8 @@
 import json
 import logging
 import subprocess
-import tempfile
 from datetime import datetime
-from app.utils.system import run_privileged, run_unprivileged
+from app.utils.system import run_privileged, run_unprivileged, write_privileged_file
 from app.services.nginx_service import _validate_domain
 from app.services.ssl_service import resolve_certbot_bin
 
@@ -13,6 +12,9 @@ def _certbot_bin():
     return resolve_certbot_bin() or 'certbot'
 
 logger = logging.getLogger(__name__)
+
+# DNS-01 credentials certbot needs again at every renewal (root only).
+DNS_CREDENTIALS_DIR = '/etc/letsencrypt/serverkit-dns'
 
 
 class AdvancedSSLService:
@@ -74,17 +76,25 @@ class AdvancedSSLService:
                 pass  # certbot reports a clear error below if the plugin is truly missing
 
         # certbot writes /etc/letsencrypt as root, so it runs through
-        # run_privileged — and the credentials must survive sudo. cloudflare
-        # gets an unpredictable root-readable file that is always deleted
-        # afterwards; route53 goes through `sudo env A=B …` because sudo's
-        # env_reset would silently strip a plain env= kwarg.
-        cred_file = None
+        # run_privileged — and the credentials must survive sudo. route53 goes
+        # through `sudo env A=B …` because sudo's env_reset would silently strip
+        # a plain env= kwarg.
+        #
+        # cloudflare's credentials file is kept: certbot records its path in
+        # the renewal config and reads it again at every renewal. Upstream wrote
+        # it to /tmp and deleted it after issuing, so every wildcard certificate
+        # failed to renew 60 days later. Fork: arya-arav/ServerKit.
         if dns_provider == 'cloudflare':
-            fd, cred_file = tempfile.mkstemp(prefix='certbot-cloudflare-', suffix='.ini')
-            with os.fdopen(fd, 'w') as f:
-                f.write(f"dns_cloudflare_api_token = {credentials.get('api_token', '')}\n")
-            if os.name != 'nt':
-                os.chmod(cred_file, 0o600)
+            cred_file = f'{DNS_CREDENTIALS_DIR}/cloudflare-{domain}.ini'
+            prepared = run_privileged(['install', '-d', '-m', '700', DNS_CREDENTIALS_DIR])
+            if prepared.returncode != 0:
+                return {'success': False,
+                        'error': (prepared.stderr or 'could not create the credentials folder').strip()}
+            written = write_privileged_file(
+                cred_file, f"dns_cloudflare_api_token = {credentials.get('api_token', '')}\n",
+                mode='600')
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
             cmd.extend(['--dns-cloudflare-credentials', cred_file])
         elif dns_provider == 'route53':
             cmd = ['env',
@@ -110,12 +120,6 @@ class AdvancedSSLService:
             return {'success': False, 'error': 'Certificate request timed out'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
-        finally:
-            if cred_file:
-                try:
-                    os.remove(cred_file)
-                except OSError:
-                    pass
 
     @staticmethod
     def issue_san_cert(domains):
