@@ -109,12 +109,32 @@ class SetupHealthService:
         val = SystemSettings.get(key, default)
         return val if val is not None else default
 
+    @staticmethod
+    def _default_base_row():
+        """The default row of the base-domain registry, or None.
+
+        Settings → Site settings writes base domains to the registry, not to
+        the legacy ``sites_*`` settings, so reading only the settings reported
+        "no base domain" on a configured panel. Fork: arya-arav/ServerKit.
+        """
+        try:
+            from app.services.site_base_domain_service import SiteBaseDomainService
+            return SiteBaseDomainService.default()
+        except Exception:  # noqa: BLE001
+            return None
+
     @classmethod
     def _base_domain(cls):
+        row = cls._default_base_row()
+        if row:
+            return row.domain.strip().lower()
         return (cls._get('sites_base_domain', '') or '').strip().lower()
 
     @classmethod
     def _dns_mode(cls):
+        row = cls._default_base_row()
+        if row:
+            return (row.dns_mode or '').strip().lower()
         return (cls._get('sites_dns_mode', '') or '').strip().lower()
 
     @classmethod
@@ -123,6 +143,9 @@ class SetupHealthService:
 
     @classmethod
     def _https_enabled(cls):
+        row = cls._default_base_row()
+        if row:
+            return bool(row.https_enabled)
         return bool(cls._get('sites_https_enabled', False))
 
     # ------------------------------------------------------------------ #
@@ -297,6 +320,20 @@ class SetupHealthService:
                 'An email provider is configured but its test send has not '
                 'passed — notifications may not be delivered.', RECOMMENDED,
                 _link('/settings/connections'))
+        # The alert email channel in Settings → Notifications has its own SMTP
+        # settings and sends without any provider connection. Fork: arya-arav/ServerKit.
+        try:
+            from app.services.notification_service import NotificationService
+            channel = NotificationService.get_config().get('email') or {}
+        except Exception:  # noqa: BLE001
+            channel = {}
+        if (channel.get('enabled') and channel.get('smtp_host')
+                and channel.get('from_email') and channel.get('to_emails')):
+            return _item(
+                'setup.email_delivery', 'Email delivery', 'ok',
+                f"Alert emails go out through {channel['smtp_host']} "
+                '(Settings → Notifications).', RECOMMENDED,
+                _link('/settings/notifications'))
         return _item(
             'setup.email_delivery', 'Email delivery', 'warn',
             'No email delivery path configured — the panel cannot send '

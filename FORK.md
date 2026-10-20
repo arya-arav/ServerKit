@@ -55,6 +55,10 @@
   - **Range list:** fetched from cloudflare.com/ips-v4 and /ips-v6, and refused if it looks wrong. Re-checked weekly (`cloudflare-ips-refresh` job, a no-op until the switch is used). The bundled fallback list (`app/utils/cloudflare_ips.py`) is shared with the doctor's DNS check.
   - **Never touched:** port 22.
   - Tests: `backend/tests/test_cloudflare_only.py`.
+- **Setup checks read where the panel writes** (`SetupHealthService._base_domain`, `_dns_mode`, `_https_enabled`, `_email_delivery_item`). Two warnings never cleared on a configured panel:
+  - **Base domain:** the base domain, DNS mode and HTTPS flag were read from the legacy `sites_*` settings, while Settings → Site settings writes the base-domain registry, so it always reported "no base domain".
+  - **Email:** email delivery only counted provider connections, not the alert email channel in Settings → Notifications, which sends over its own SMTP settings.
+  - Tests: the `registered_in_site_settings` and `alert_email_channel` cases in `backend/tests/test_setup_health.py`.
 - **"Backups scheduled" counts schedules** (`SetupHealthService._backup_policy_item`). Upstream only counted per-service backup policies, so a server backed up by a schedule from Backups → Schedules still got "nothing is being backed up". Tests: the `backup_policy` cases in `backend/tests/test_setup_health.py`.
 - **Off-site backup upkeep** (`BackupService._cleanup_remote`, `_record_remote`).
   - **Cleanup:** the daily cleanup now also deletes off-site copies older than the retention (`remote_retention_days`, defaulting to `retention_days`). Upstream pruned local copies only, so the bucket grew forever. Only objects under the destination's path prefix are touched, and nothing is swept when no prefix is set.

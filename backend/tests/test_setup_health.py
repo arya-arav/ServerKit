@@ -114,6 +114,43 @@ def test_base_domain_recommended_when_unset(app):
     assert c['severity'] == 'recommended'
 
 
+def test_base_domain_ok_when_registered_in_site_settings(app):
+    """Fork: Settings → Site settings writes the base-domain registry, not the
+    legacy sites_base_domain setting."""
+    from app.services.site_base_domain_service import SiteBaseDomainService
+    SiteBaseDomainService.add('apps.example.com', make_default=True)
+
+    c = items_by_key(SetupHealthService.evaluate())['setup.base_domain']
+
+    assert c['status'] == 'ok'
+    assert 'apps.example.com' in c['detail']
+
+
+def _notification_email(monkeypatch, **channel):
+    from app.services.notification_service import NotificationService
+    monkeypatch.setattr(NotificationService, 'get_config', classmethod(lambda cls: {'email': channel}))
+
+
+def test_email_delivery_ok_through_the_alert_email_channel(app, monkeypatch):
+    """Fork: Settings → Notifications sends over its own SMTP settings."""
+    _notification_email(monkeypatch, enabled=True, smtp_host='smtp.resend.com',
+                        from_email='panel@example.com', to_emails=['me@example.com'])
+
+    c = items_by_key(SetupHealthService.evaluate())['setup.email_delivery']
+
+    assert c['status'] == 'ok'
+    assert 'smtp.resend.com' in c['detail']
+
+
+def test_email_delivery_warn_when_the_alert_channel_is_off(app, monkeypatch):
+    _notification_email(monkeypatch, enabled=False, smtp_host='smtp.resend.com',
+                        from_email='panel@example.com', to_emails=['me@example.com'])
+
+    c = items_by_key(SetupHealthService.evaluate())['setup.email_delivery']
+
+    assert c['status'] == 'warn'
+
+
 def test_dns_provider_ok_when_connected(app):
     add_dns_provider()
     c = items_by_key(SetupHealthService.evaluate())['setup.dns_provider']
