@@ -28,6 +28,10 @@ LAST_REPORT_KEY = 'doctor_last_report'
 CORE_SERVICES = ('nginx', 'docker')
 
 CERT_WARN_DAYS = 14
+# Certificates the expiry check reads from disk (Let's Encrypt, then ServerKit's own).
+CERT_DIR_GLOBS = ('/etc/letsencrypt/live/*/cert.pem', '/etc/ssl/serverkit/*/cert.pem')
+# Units that renew Let's Encrypt certificates (apt package, then snap).
+CERTBOT_RENEW_TIMERS = ('certbot.timer', 'snap.certbot.renew.timer')
 DISK_WARN_FREE_PCT = 10.0
 DISK_FAIL_FREE_PCT = 5.0
 
@@ -299,40 +303,90 @@ class DoctorService:
 
     @classmethod
     def _cert_check(cls):
-        """Nearest tracked certificate expiry (Domain.ssl_expires_at)."""
+        """Nearest certificate expiry, plus whether certbot renews automatically.
+
+        Reads Domain.ssl_expires_at and the certificates on disk
+        (CERT_DIR_GLOBS), keeping the earliest expiry per name. Nothing in
+        production writes Domain.ssl_expires_at yet, so without the disk scan
+        an empty table would report "not monitored" on every host.
+        """
         try:
             from app.models.domain import Domain
             rows = (Domain.query
                     .filter(Domain.ssl_expires_at.isnot(None))
-                    .order_by(Domain.ssl_expires_at.asc())
                     .all())
         except Exception as e:  # noqa: BLE001
             return _check('certs.expiry', 'Certificate expiry', 'warn',
                           f'Could not read certificate data: {e}')
-        if not rows:
-            # Nothing in production writes Domain.ssl_expires_at yet, so an
-            # empty table does not mean "nothing expiring" — it means expiry
-            # is not being monitored at all. ok must be positively earned.
+
+        expiries = {d.name: d.ssl_expires_at for d in rows}
+        on_disk = cls._certs_on_disk()
+        for name, expires_at in on_disk.items():
+            if name not in expiries or expires_at < expiries[name]:
+                expiries[name] = expires_at
+        if not expiries:
+            # ok must be positively earned: no data means expiry is not monitored.
             return _check('certs.expiry', 'Certificate expiry', 'warn',
                           'No certificate expiry data is being collected — '
                           'expiry is not being monitored.')
+
+        renewal = cls._renewal_status() if on_disk else None
+        nearest_name, nearest_at = min(expiries.items(), key=lambda kv: kv[1])
         now = datetime.utcnow()
-        soon = [d for d in rows if d.ssl_expires_at <= now + timedelta(days=CERT_WARN_DAYS)]
-        expired = [d for d in soon if d.ssl_expires_at <= now]
+        soon = sorted((at, name) for name, at in expiries.items()
+                      if at <= now + timedelta(days=CERT_WARN_DAYS))
+        expired = [name for at, name in soon if at <= now]
         if expired:
-            names = ', '.join(d.name for d in expired[:5])
             return _check('certs.expiry', 'Certificate expiry', 'fail',
-                          f'Expired certificate(s): {names}')
+                          f'Expired certificate(s): {", ".join(expired[:5])}')
         if soon:
-            nearest = soon[0]
-            days = max(0, (nearest.ssl_expires_at - now).days)
+            at, name = soon[0]
+            days = max(0, (at - now).days)
             return _check('certs.expiry', 'Certificate expiry', 'warn',
                           f'{len(soon)} certificate(s) expire within {CERT_WARN_DAYS} days '
-                          f'(nearest: {nearest.name} in {days}d).')
-        nearest = rows[0]
-        return _check('certs.expiry', 'Certificate expiry', 'ok',
-                      f'Nearest expiry: {nearest.name} on '
-                      f'{nearest.ssl_expires_at.date().isoformat()}.')
+                          f'(nearest: {name} in {days}d).')
+        detail = f'Nearest expiry: {nearest_name} on {nearest_at.date().isoformat()}.'
+        if renewal is False:
+            return _check('certs.expiry', 'Certificate expiry', 'warn',
+                          detail + ' Automatic renewal is off (certbot.timer is not '
+                          'enabled), so these certificates will lapse.')
+        if renewal:
+            detail += ' Automatic renewal is on.'
+        return _check('certs.expiry', 'Certificate expiry', 'ok', detail)
+
+    @staticmethod
+    def _certs_on_disk():
+        """{name: naive-UTC expiry} for readable certificates under CERT_DIR_GLOBS."""
+        import glob
+        import os
+        found = {}
+        try:
+            from cryptography import x509
+        except Exception:  # noqa: BLE001
+            return found
+        for pattern in CERT_DIR_GLOBS:
+            for path in glob.glob(pattern):
+                name = os.path.basename(os.path.dirname(path))
+                try:
+                    with open(path, 'rb') as fh:
+                        cert = x509.load_pem_x509_certificate(fh.read())
+                    expires_at = cert.not_valid_after_utc.replace(tzinfo=None)
+                except Exception:  # noqa: BLE001
+                    continue  # unreadable or not PEM: leave it to the SSL pages
+                if name not in found or expires_at < found[name]:
+                    found[name] = expires_at
+        return found
+
+    @staticmethod
+    def _renewal_status():
+        """True/False when certbot.timer's state is known, None otherwise."""
+        if not sys.platform.startswith('linux'):
+            return None
+        try:
+            from app.utils.system import ServiceControl
+            return any(ServiceControl.is_enabled(t) for t in CERTBOT_RENEW_TIMERS)
+        except Exception:  # noqa: BLE001
+            return None
 
     @classmethod
     def _disk_check(cls):

@@ -26,9 +26,10 @@ set -Eeuo pipefail
 DRY_RUN=0
 FORCE_UPDATE=0
 TARGET_BRANCH=""
-# Default to a pre-built release update (Node-free). --source / --branch /
-# BUILD_FROM_SOURCE=1 opt into an on-box source rebuild instead.
-USE_RELEASE="${INSTALL_FROM_RELEASE:-1}"
+# Fork: default to an on-box source rebuild of the fork's main branch, since the
+# fork publishes no release tarballs (see FORK.md). --release still works for a
+# repo that has them; INSTALL_FROM_RELEASE=1 restores the upstream default.
+USE_RELEASE="${INSTALL_FROM_RELEASE:-0}"
 [ "${BUILD_FROM_SOURCE:-0}" = "1" ] && USE_RELEASE=0
 RELEASE_VERSION="${SERVERKIT_VERSION:-}"
 
@@ -118,7 +119,8 @@ SYSTEMD_DIR="${SERVERKIT_SYSTEMD_DIR:-/etc/systemd/system}"
 # container. The updater probes these to prove apps stayed up across the switch.
 APP_LOCATIONS_DIR="${SERVERKIT_APP_LOCATIONS_DIR:-/etc/nginx/serverkit-locations}"
 
-GITHUB_REPO="${GITHUB_REPO:-jhd3197/ServerKit}"
+# Fork: update from arya-arav/ServerKit (see FORK.md). Upstream is jhd3197/ServerKit.
+GITHUB_REPO="${GITHUB_REPO:-arya-arav/ServerKit}"
 SERVERKIT_OFFLINE_TARBALL="${SERVERKIT_OFFLINE_TARBALL:-}"
 SERVERKIT_MIRROR_URL="${SERVERKIT_MIRROR_URL:-}"
 BACKEND_SERVICE="serverkit"

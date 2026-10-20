@@ -1,0 +1,29 @@
+# This fork
+
+`arya-arav/ServerKit` is a fork of [jhd3197/ServerKit](https://github.com/jhd3197/ServerKit) (MIT). It runs its maintainer's own panel.
+
+## What differs from upstream
+
+- **Certificate expiry check** (`backend/app/services/doctor_service.py`, `_cert_check`). Upstream only reads `Domain.ssl_expires_at`, which nothing fills, so the health page always warned "expiry is not being monitored". The fork also reads the certificates on disk (`/etc/letsencrypt/live/*/cert.pem`, `/etc/ssl/serverkit/*/cert.pem`). It reports whether `certbot.timer` renews them automatically and warns if automatic renewal is off. Tests: `backend/tests/test_doctor_cert_check.py`.
+- **Updates come from this fork.** `scripts/update.sh` and `install.sh` default to `GITHUB_REPO=arya-arav/ServerKit`. `update.sh` rebuilds from this fork's `main` on the server, because the fork publishes no release tarballs. Both `sudo serverkit update` and the panel's Update button follow this fork.
+
+The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.
+
+- **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
+
+## Taking upstream updates
+
+```bash
+git fetch upstream
+git merge upstream/main        # resolve conflicts, keep the fork changes above
+git push origin main
+# then on the server:
+sudo serverkit update
+```
+
+## Server-side changes not in this repo
+
+These live on the server only. Re-check them after an update.
+
+- `/etc/nginx/conf.d/cloudflare-realip.conf` (real visitor IPs behind Cloudflare).
+- Cloudflare allow lists for Fail2ban (`/etc/fail2ban/jail.d/zz-cloudflare-ignore.local`) and CrowdSec (`/etc/crowdsec/parsers/s02-enrich/cloudflare-whitelist.yaml`).
