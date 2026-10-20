@@ -82,6 +82,26 @@ class StorageProviderService:
         return masked
 
     @classmethod
+    def _unmask_secrets(cls, config: Dict) -> Dict:
+        """Swap masked secrets (as get_config_masked shows them) for the
+        stored values, in place. The form echoes the masks back on save and on
+        Test connection; testing with the masks always failed with
+        SignatureDoesNotMatch. Fork: arya-arav/ServerKit."""
+        existing = cls.get_config()
+        secret_fields = {
+            's3': ['access_key', 'secret_key'],
+            'b2': ['key_id', 'application_key']
+        }
+        for provider, fields in secret_fields.items():
+            if isinstance(config.get(provider), dict):
+                for field in fields:
+                    new_val = config[provider].get(field, '')
+                    # Detect our masking pattern: 4 visible chars followed by only asterisks
+                    if new_val and len(new_val) > 4 and new_val[4:] == '*' * (len(new_val) - 4):
+                        config[provider][field] = existing.get(provider, {}).get(field, '')
+        return config
+
+    @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save storage provider configuration."""
         try:
@@ -95,20 +115,11 @@ class StorageProviderService:
             os.makedirs(os.path.dirname(cls.CONFIG_FILE) or '.', exist_ok=True)
 
             # Merge with existing config to preserve unmasked secrets
-            existing = cls.get_config()
+            cls._unmask_secrets(config)
             secret_fields = {
                 's3': ['access_key', 'secret_key'],
                 'b2': ['key_id', 'application_key']
             }
-
-            for provider, fields in secret_fields.items():
-                if provider in config:
-                    for field in fields:
-                        new_val = config[provider].get(field, '')
-                        # Detect our masking pattern: 4 visible chars followed by only asterisks
-                        if new_val and len(new_val) > 4 and new_val[4:] == '*' * (len(new_val) - 4):
-                            # Keep existing value if masked
-                            config[provider][field] = existing.get(provider, {}).get(field, '')
 
             # Encrypt secrets at rest (idempotent — skip already-encrypted values).
             for provider, fields in secret_fields.items():
@@ -205,6 +216,8 @@ class StorageProviderService:
     def test_connection(cls, config: Dict = None) -> Dict:
         """Test connection to storage provider."""
         try:
+            if config is not None:
+                config = cls._unmask_secrets(json.loads(json.dumps(config)))
             client, bucket, prefix = cls._get_client(config)
             if client is None:
                 return {'success': False, 'error': 'No remote provider configured'}

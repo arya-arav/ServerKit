@@ -65,7 +65,8 @@
   - **Cleanup:** the daily cleanup now also deletes off-site copies older than the retention (`remote_retention_days`, defaulting to `retention_days`). Upstream pruned local copies only, so the bucket grew forever. Only objects under the destination's path prefix are touched, and nothing is swept when no prefix is set.
   - **Status:** a file backup's metadata now says `synced` after a successful upload; upstream rewrote it only for directory backups.
   - **No double upload:** a scheduled upload is skipped when auto-upload already sent the backup.
-  - Tests: `backend/tests/test_backup_offsite_upkeep.py`.
+  - **Test connection** (`StorageProviderService._unmask_secrets`): the Storage form shows saved keys masked (`abcd****`) and sends the masks back. Saving already swapped them for the stored values, but Test connection used them as typed and always failed with SignatureDoesNotMatch. Both now share the swap.
+  - Tests: `backend/tests/test_backup_offsite_upkeep.py`, `backend/tests/test_storage_test_connection.py`.
 - **Run a backup schedule now** (`POST /api/v1/backups/schedules/<id>/run`, `BackupService.run_schedule_now`; play button on Backups → Schedules). Queues one background run of the schedule outside its timetable. Upstream's table already had the button slot but nothing behind it. Tests: `backend/tests/test_backup_run_now.py`.
 - **Back up databases that run in Docker** (`BackupService._dump_container_database`; Database schedule target `container:<container>/<database>`, or `container:<container>` for all databases). Upstream's database backups ran `mysqldump`/`pg_dump` on the host only, which fails for the usual Docker setup where the database is a service in the app's compose stack.
   - **How it runs:** the engine (MariaDB/MySQL/Percona or PostgreSQL) comes from the container image, and the dump runs inside the container with the credentials it was started with, so the panel stores no password.
