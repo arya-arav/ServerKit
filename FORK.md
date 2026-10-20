@@ -55,6 +55,7 @@
   - **Range list:** fetched from cloudflare.com/ips-v4 and /ips-v6, and refused if it looks wrong. Re-checked weekly (`cloudflare-ips-refresh` job, a no-op until the switch is used). The bundled fallback list (`app/utils/cloudflare_ips.py`) is shared with the doctor's DNS check.
   - **Never touched:** port 22.
   - Tests: `backend/tests/test_cloudflare_only.py`.
+- **"Backups scheduled" counts schedules** (`SetupHealthService._backup_policy_item`). Upstream only counted per-service backup policies, so a server backed up by a schedule from Backups → Schedules still got "nothing is being backed up". Tests: the `backup_policy` cases in `backend/tests/test_setup_health.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

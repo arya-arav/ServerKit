@@ -160,8 +160,27 @@ def test_backup_policy_ok_with_enabled_policy(app):
     assert c['status'] == 'ok'
 
 
-def test_backup_policy_warn_without_any(app):
+def test_backup_policy_warn_without_any(app, monkeypatch):
+    from app.services.backup_service import BackupService
+    monkeypatch.setattr(BackupService, 'get_config', classmethod(lambda cls: {'schedules': []}))
     add_backup_policy(enabled=False)
+    c = items_by_key(SetupHealthService.evaluate())['setup.backup_policy']
+    assert c['status'] == 'warn'
+
+
+def test_backup_policy_ok_with_an_enabled_schedule(app, monkeypatch):
+    """Fork: schedules from Backups → Schedules count as scheduled backups."""
+    from app.services.backup_service import BackupService
+    monkeypatch.setattr(BackupService, 'get_config', classmethod(
+        lambda cls: {'schedules': [{'name': 'daily', 'enabled': True}]}))
+    c = items_by_key(SetupHealthService.evaluate())['setup.backup_policy']
+    assert c['status'] == 'ok'
+
+
+def test_backup_policy_warn_when_every_schedule_is_off(app, monkeypatch):
+    from app.services.backup_service import BackupService
+    monkeypatch.setattr(BackupService, 'get_config', classmethod(
+        lambda cls: {'schedules': [{'name': 'daily', 'enabled': False}]}))
     c = items_by_key(SetupHealthService.evaluate())['setup.backup_policy']
     assert c['status'] == 'warn'
 

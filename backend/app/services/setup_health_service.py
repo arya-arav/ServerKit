@@ -315,6 +315,19 @@ class SetupHealthService:
                 'setup.backup_policy', 'Backups scheduled', 'ok',
                 'At least one enabled backup policy is protecting a target.',
                 RECOMMENDED, _link('/backups'))
+        # Schedules made on Backups → Schedules live in backups.json, not in
+        # BackupPolicy; they back things up just the same. Fork: arya-arav/ServerKit.
+        try:
+            from app.services.backup_service import BackupService
+            schedules = [s for s in BackupService.get_config().get('schedules', [])
+                         if s.get('enabled', True)]
+        except Exception:  # noqa: BLE001
+            schedules = []
+        if schedules:
+            return _item(
+                'setup.backup_policy', 'Backups scheduled', 'ok',
+                f'{len(schedules)} backup schedule(s) enabled.',
+                RECOMMENDED, _link('/backups'))
         return _item(
             'setup.backup_policy', 'Backups scheduled', 'warn',
             'No enabled backup policy — nothing is being backed up on a '
