@@ -232,6 +232,10 @@ const Templates = () => {
     const [templates, setTemplates] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Only the first load swaps the page for the skeleton. Searching refetches on
+    // every keystroke; replacing the page then unmounted the search box (it rides
+    // the top bar from this page) and it lost focus after each letter.
+    const [loadedOnce, setLoadedOnce] = useState(false);
     const [loadError, setLoadError] = useState(null);
     const [failedIcons, setFailedIcons] = useState(new Set());
     const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -278,7 +282,10 @@ const Templates = () => {
         } catch (err) {
             if (request === templatesRequest.current) setLoadError(err);
         } finally {
-            if (request === templatesRequest.current) setLoading(false);
+            if (request === templatesRequest.current) {
+                setLoading(false);
+                setLoadedOnce(true);
+            }
         }
     }, [selectedCategory, searchQuery]);
 
@@ -517,7 +524,7 @@ const Templates = () => {
         </>,
     );
 
-    if (loading) {
+    if (loading && !loadedOnce) {
         return (
             <div className="sk-tabgroup__inner">
                 <EmptyState loading loadingVariant="cards" title={t('app.templates.loadingTemplates', 'Loading templates')} />
@@ -526,7 +533,7 @@ const Templates = () => {
     }
 
     return (
-        <div className="sk-tabgroup__inner templates-page">
+        <div className="sk-tabgroup__inner templates-page" aria-busy={loading || undefined}>
             {topbarChrome}
             {/* The catalog is not the only way in: a repo or an archive skips
                 templates entirely, so both routes lead the page rather than
