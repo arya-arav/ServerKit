@@ -42,7 +42,12 @@ const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {}
         <SharedButton variant="unstyled"
             type="button"
             className="sidebar-collapse-toggle"
-            onClick={toggleCollapsed}
+            onClick={(e) => {
+                toggleCollapsed();
+                // The rail stays open while it holds focus; after a mouse
+                // click, let go so it folds away at once (keyboard keeps focus).
+                if (e.detail > 0) e.currentTarget.blur();
+            }}
             aria-pressed={collapsed}
             aria-label={collapsed
                 ? t('nav.expandSidebarLong', 'Expand the sidebar')
