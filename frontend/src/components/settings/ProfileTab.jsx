@@ -12,13 +12,19 @@ import { formatDate } from '@/utils/intl';
 const AVATAR_SIZE = 256;
 const AVATAR_MAX_BYTES = 256 * 1024;
 
+// Read as a data: URL, not URL.createObjectURL(): the panel's CSP allows
+// img-src 'self' data: https: — a blob: URL is refused and the image never loads.
 function loadImage(file) {
     return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('unreadable')); };
-        img.src = url;
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('unreadable'));
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('unreadable'));
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
     });
 }
 
