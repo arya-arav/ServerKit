@@ -317,22 +317,32 @@ def update_domain(domain_id):
 
     data = json_object()
 
-    if 'is_primary' in data and data['is_primary']:
+    primary_changed = False
+    if 'is_primary' in data and data['is_primary'] and not domain.is_primary:
         # Unset any existing primary domain for this app
         Domain.query_active().filter_by(application_id=domain.application_id, is_primary=True).update({'is_primary': False}, synchronize_session=False)
         domain.is_primary = True
+        primary_changed = True
 
-    if 'ssl_enabled' in data:
+    ssl_changed = False
+    if 'ssl_enabled' in data and bool(data['ssl_enabled']) != bool(domain.ssl_enabled):
         domain.ssl_enabled = data['ssl_enabled']
+        ssl_changed = True
     if 'ssl_auto_renew' in data:
         domain.ssl_auto_renew = data['ssl_auto_renew']
 
     db.session.commit()
 
-    return jsonify({
+    body = {
         'message': 'Domain updated successfully',
         'domain': domain.to_dict()
-    }), 200
+    }
+    # The vhost depends on which domain is primary (HTTPS redirect target, and
+    # the redirect target of the other domains) and on which have HTTPS, so
+    # re-render now instead of at the next unrelated edit.
+    if primary_changed or ssl_changed:
+        body['nginx'] = _publish_app_vhost(app)
+    return jsonify(body), 200
 
 
 @domains_bp.route('/<int:domain_id>', methods=['DELETE'])

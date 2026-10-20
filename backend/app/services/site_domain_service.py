@@ -495,6 +495,11 @@ class SiteDomainService:
                     micro_cache=bool(getattr(app, 'micro_cache_enabled', False)),
                     micro_cache_ttl=getattr(app, 'micro_cache_ttl', None),
                     immutable_assets=bool(getattr(app, 'immutable_assets', False)))
+        # Redirect every other domain to the primary one (domains is primary
+        # first, see app_vhost_kwargs). Only passed when it applies, so other
+        # vhosts render exactly as before.
+        if getattr(app, 'redirect_aliases', False) and len(domains) > 1:
+            base['canonical_domain'] = domains[0]
         # Reverse-proxy to a local container/app port.
         if t in ('docker', 'wordpress'):
             if not app.port:
@@ -541,7 +546,11 @@ class SiteDomainService:
         # straight back into server_name — the vhost would keep serving a domain
         # the user removed, and drift detection (which renders through this same
         # function) would report the correct config as drifted.
-        domains = [d.name for d in Domain.query_active().filter_by(application_id=app.id).all()]
+        # Primary first: the :80 -> HTTPS redirect targets the first listed name
+        # ($server_name), which used to be whichever row the database returned.
+        rows = (Domain.query_active().filter_by(application_id=app.id)
+                .order_by(Domain.is_primary.desc(), Domain.id.asc()).all())
+        domains = [d.name for d in rows]
         if not domains:
             return None, None
 
@@ -659,6 +668,23 @@ class SiteDomainService:
             warning = result.get('warning')
             applied = result.get('nginx') is not None and not warning
         body = {'immutable_assets': bool(app.immutable_assets), 'applied': applied}
+        if warning:
+            body['warning'] = warning
+        return body
+
+    @classmethod
+    def set_redirect_aliases(cls, app, enabled):
+        """Save the redirect-other-domains-to-primary flag and republish the
+        vhost through the normal path (same pattern as set_immutable_assets)."""
+        from app import db
+        app.redirect_aliases = bool(enabled)
+        db.session.commit()
+        applied, warning = False, None
+        if app.live_domains:
+            result = cls.write_app_vhost(app)
+            warning = result.get('warning')
+            applied = result.get('nginx') is not None and not warning
+        body = {'redirect_aliases': bool(app.redirect_aliases), 'applied': applied}
         if warning:
             body['warning'] = warning
         return body

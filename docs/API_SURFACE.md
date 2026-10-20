@@ -1292,6 +1292,7 @@ Regenerate (backend/):
 - `PUT /apps/{app_id}/pooler`
 - `PUT /apps/{app_id}/previews/settings`
 - `PUT /apps/{app_id}/private-url`
+- `PUT /apps/{app_id}/redirect-aliases`
 - `PUT /apps/{app_id}/resources`
 - `PUT /apps/{app_id}/sleep-policy`
 - `PUT /apps/{app_id}/slots`

@@ -149,3 +149,20 @@ def set_immutable_assets(app_id):
     if not isinstance(data.get('enabled'), bool):
         raise ValidationError("'enabled' must be true or false")
     return jsonify(SiteDomainService.set_immutable_assets(app, data['enabled']))
+
+
+# ==================== REDIRECT ALIASES ====================
+
+@app_attachments_bp.route('/<int:app_id>/redirect-aliases', methods=['PUT'])
+@developer_required
+def set_redirect_aliases(app_id):
+    """Serve only the primary domain; 301 every other domain of the service
+    to it, keeping the path. Off by default: aliases serve the same site."""
+    from app.services.site_domain_service import SiteDomainService
+    app = AppAttachmentService.live_app(app_id)
+    if app is None or not ResourceGrantService.can_edit_app(get_current_user(), app):
+        raise not_found('service')
+    data = json_object(optional=True)
+    if not isinstance(data.get('enabled'), bool):
+        raise ValidationError("'enabled' must be true or false")
+    return jsonify(SiteDomainService.set_redirect_aliases(app, data['enabled']))

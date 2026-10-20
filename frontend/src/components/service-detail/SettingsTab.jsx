@@ -40,6 +40,7 @@ import { attachDomain } from '@/services/attachDomain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { downloadBlob } from '@/utils/downloadBlob';
 import { useTranslation } from 'react-i18next';
@@ -478,6 +479,8 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
     const [newDomain, setNewDomain] = useState({ name: '', info: null });
     const [attaching, setAttaching] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
+    const [redirectAliases, setRedirectAliases] = useState(!!app.redirect_aliases);
+    const otherDomains = domains.filter((d) => d.name !== primaryDomain).map((d) => d.name);
     // localStorage seeds the field instantly (no flash on a page the user has
     // used before); the panel-wide contact fills it in when this browser has
     // no copy — which is the case the Domains modal shares.
@@ -545,6 +548,21 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
         }
     }
 
+    async function handleRedirectAliases(next) {
+        setRedirectAliases(next);
+        try {
+            const data = await api.setRedirectAliases(app.id, next);
+            if (data.warning) toast.warning(data.warning);
+            else toast.success(next
+                ? t('app.settingsTab.aliasesNowRedirect', 'Other domains now redirect to {{primaryDomain}}', { primaryDomain })
+                : t('app.settingsTab.aliasesServeSite', 'Every domain serves the site again'));
+            onUpdate();
+        } catch (err) {
+            setRedirectAliases(!next);
+            toastError(toast, t('app.settingsTab.couldntUpdateRedirect', "Couldn't update the domain redirect."), err);
+        }
+    }
+
     async function handleEnableSSL() {
         if (!primaryDomain) { toast.error(t('app.settingsTab.noPrimaryDomainConfigured', 'No primary domain configured')); return; }
         if (!email.trim() || !email.includes('@')) { toast.error(t('app.settingsTab.enterAValidEmailForCertificate', 'Enter a valid email for certificate expiry notices')); return; }
@@ -607,6 +625,24 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                         <Globe size={14} />
                         {t('app.settingsTab.addADomain', 'Add a domain')}
                     </Button>
+                </div>
+            )}
+
+            {primaryDomain && otherDomains.length > 0 && (
+                <div className="settings-row">
+                    <div className="settings-label">
+                        <span>{t('app.settingsTab.redirectToPrimary', 'Redirect other domains to the primary')}</span>
+                        <span className="settings-hint">
+                            {t('app.settingsTab.redirectToPrimaryHint', '{{others}} send visitors to the same page on {{primaryDomain}} (301), so each page has one address. Off: every domain serves the site.', { others: otherDomains.join(', '), primaryDomain })}
+                        </span>
+                    </div>
+                    <div className="settings-control">
+                        <Switch
+                            checked={redirectAliases}
+                            onCheckedChange={handleRedirectAliases}
+                            aria-label={t('app.settingsTab.redirectToPrimary', 'Redirect other domains to the primary')}
+                        />
+                    </div>
                 </div>
             )}
 

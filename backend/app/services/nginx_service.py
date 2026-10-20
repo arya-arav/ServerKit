@@ -645,7 +645,8 @@ location /p/ {{
                            micro_cache: bool = False,
                            micro_cache_ttl: Optional[int] = None,
                            immutable_assets: bool = False,
-                           wordpress_protection: bool = False) -> Dict:
+                           wordpress_protection: bool = False,
+                           canonical_domain: Optional[str] = None) -> Dict:
         """Render the vhost config for a site to a string — no side effects.
 
         This is the exact template pipeline :meth:`create_site` writes to disk;
@@ -653,6 +654,10 @@ location /p/ {{
         the expected on-disk content without touching the filesystem.
         Returns ``{'success': True, 'config': str}`` or
         ``{'success': False, 'error': msg}``.
+
+        ``canonical_domain`` (one of ``domains``) serves the site on that name
+        only and 301-redirects every other domain to it, keeping the path —
+        one address per page instead of identical copies on each alias.
         """
         if not domains:
             return {'success': False, 'error': 'At least one domain is required'}
@@ -668,7 +673,15 @@ location /p/ {{
         if root_path and not _validate_path(root_path):
             return {'success': False, 'error': f'Invalid root path: {root_path}'}
 
-        domains_str = ' '.join(domains)
+        aliases = []
+        if canonical_domain and canonical_domain in domains and len(domains) > 1:
+            aliases = [d for d in domains if d != canonical_domain]
+            # Canonical first: the :80 redirect block sends to $server_name,
+            # which is the first name it lists.
+            domains = [canonical_domain] + aliases
+        all_domains_str = ' '.join(domains)
+        # The site itself answers only on the canonical name when aliases redirect.
+        domains_str = canonical_domain if aliases else all_domains_str
 
         # Select template based on app type
         if app_type in ['php', 'wordpress']:
@@ -729,9 +742,36 @@ location /p/ {{
             config = cls._with_wordpress_protection(config, port)
 
         if ssl_cert and ssl_key:
-            config = cls._with_ssl(config, domains_str, ssl_cert, ssl_key)
+            config = cls._with_ssl(config, all_domains_str, ssl_cert, ssl_key)
+
+        if aliases:
+            config += cls._alias_redirects(aliases, canonical_domain, ssl_cert, ssl_key)
 
         return {'success': True, 'config': config}
+
+    @classmethod
+    def _alias_redirects(cls, aliases: List[str], canonical: str,
+                         ssl_cert: str = None, ssl_key: str = None) -> str:
+        """Server block(s) that 301 the other domains of a site to ``canonical``.
+
+        With TLS the :80 redirect block already covers every name and sends to
+        ``https://<canonical>`` ($server_name, canonical first), so only the
+        aliases' 443 block is added. Without TLS the aliases get a :80 block.
+        """
+        names = ' '.join(aliases)
+        header = '\n# Other domains of this site redirect to its primary domain.\n'
+        if ssl_cert and ssl_key:
+            ssl_block = cls.SSL_BLOCK.format(ssl_cert=ssl_cert, ssl_key=ssl_key).strip('\n')
+            return (header + 'server {\n' + ssl_block + '\n'
+                    f'    server_name {names};\n'
+                    f'    return 301 https://{canonical}$request_uri;\n'
+                    '}\n')
+        return (header + 'server {\n'
+                '    listen 80;\n'
+                '    listen [::]:80;\n'
+                f'    server_name {names};\n'
+                f'    return 301 http://{canonical}$request_uri;\n'
+                '}\n')
 
     @classmethod
     def _with_wordpress_protection(cls, config: str, port: int) -> str:
@@ -1038,7 +1078,8 @@ location /p/ {{
                     upstream: str = None, micro_cache: bool = False,
                     micro_cache_ttl: Optional[int] = None,
                     immutable_assets: bool = False,
-                    wordpress_protection: bool = False) -> Dict:
+                    wordpress_protection: bool = False,
+                    canonical_domain: Optional[str] = None) -> Dict:
         """Create a new site configuration.
 
         When ``ssl_cert``/``ssl_key`` are given the generated vhost serves HTTPS
@@ -1053,6 +1094,7 @@ location /p/ {{
             upstream=upstream, micro_cache=micro_cache,
             micro_cache_ttl=micro_cache_ttl, immutable_assets=immutable_assets,
             wordpress_protection=wordpress_protection,
+            canonical_domain=canonical_domain,
         )
         if not rendered.get('success'):
             return rendered

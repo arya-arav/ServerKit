@@ -581,6 +581,11 @@ export async function setImmutableAssets(appId, enabled) {
     return this.request(`/apps/${appId}/immutable-assets`, { method: 'PUT', body: { enabled } });
 }
 
+// Serve only the primary domain; 301 the service's other domains to it.
+export async function setRedirectAliases(appId, enabled) {
+    return this.request(`/apps/${appId}/redirect-aliases`, { method: 'PUT', body: { enabled } });
+}
+
 // A/B slot deploys: slot state + eligibility, the opt-in, and the
 // instant switch back to the standby.
 export async function getAppSlots(appId) {
