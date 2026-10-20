@@ -502,7 +502,7 @@ def verify_domain(domain_id):
     was left with a certificate error that named nothing.
     """
     from app.services.doctor_service import (
-        _aaaa_conflicts, _local_host_ips, _resolve_host_ips,
+        _aaaa_conflicts, _all_cloudflare, _local_host_ips, _resolve_host_ips,
     )
     from app.services.site_domain_service import SiteDomainService
 
@@ -538,6 +538,12 @@ def verify_domain(domain_id):
         'ip_address': (ipv4 or ips)[0],
         'ip_addresses': ips,
     }
+    if _all_cloudflare(ips):
+        payload['proxied'] = 'cloudflare'
+        payload['note'] = (
+            f"{domain.name} is proxied through Cloudflare, so DNS shows "
+            f"Cloudflare's addresses, not this server's. The origin is set in "
+            f"Cloudflare's DNS.")
     if conflicts:
         payload['aaaa_conflict'] = conflicts
         payload['warning'] = (

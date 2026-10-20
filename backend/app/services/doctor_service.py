@@ -133,6 +133,11 @@ def _aaaa_conflicts(ips, server_ip, known_ips=None):
     ``known_ips`` is passed in by callers that sweep many domains so the
     interface enumeration happens once per run rather than once per domain.
     """
+    if _all_cloudflare(ips or []):
+        # A proxied (orange-cloud) record: both A and AAAA are Cloudflare's
+        # edge, which answers ACME challenges and forwards them to the origin,
+        # so its IPv6 addresses are not a stray AAAA record.
+        return []
     v6 = []
     for ip in ips or []:
         try:

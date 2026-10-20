@@ -6,18 +6,9 @@ requests fell through to the panel's default server."""
 
 
 def _mk_app_with_domain(db, cert=None, key=None, ssl_enabled=True):
-    from werkzeug.security import generate_password_hash
-    from app.models import Application, User
     from app.models.domain import Domain
-    u = User(email='own@test.local', username='owncert',
-             password_hash=generate_password_hash('x'),
-             role=User.ROLE_ADMIN, is_active=True)
-    db.session.add(u)
-    db.session.commit()
-    a = Application(name='shop', app_type='docker', user_id=u.id,
-                    root_path='/srv/shop', port=8071)
-    db.session.add(a)
-    db.session.commit()
+    from factories import make_application
+    a = make_application(db, name='shop', root_path='/srv/shop', port=8071)
     db.session.add(Domain(name='shop.example.com', is_primary=True, application_id=a.id,
                           ssl_enabled=ssl_enabled, ssl_certificate_path=cert, ssl_key_path=key))
     db.session.commit()

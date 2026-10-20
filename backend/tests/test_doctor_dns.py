@@ -341,3 +341,16 @@ def test_unrelated_ip_still_warns(app, site, monkeypatch):
     }))
     c = checks_by_key(DoctorService._dns_checks())['dns.resolve.elsewhere.example.com']
     assert c['status'] == 'warn'
+
+
+def test_aaaa_conflicts_ignores_cloudflare_proxied_record():
+    from app.services.doctor_service import _aaaa_conflicts
+    ips = ['104.21.55.11', '172.67.143.233',
+           '2606:4700:3030::6815:370b', '2606:4700:3033::ac43:8fe9']
+    assert _aaaa_conflicts(ips, '203.0.113.7', known_ips=[]) == []
+
+
+def test_aaaa_conflicts_still_flags_a_stray_aaaa():
+    from app.services.doctor_service import _aaaa_conflicts
+    ips = ['203.0.113.7', '2001:db8::99']
+    assert _aaaa_conflicts(ips, '203.0.113.7', known_ips=[]) == ['2001:db8::99']
