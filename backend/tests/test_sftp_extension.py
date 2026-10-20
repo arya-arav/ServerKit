@@ -37,7 +37,7 @@ def test_sshd_dropin_confines_only_the_sftp_group(svc):
     lines = [line.strip() for line in text.splitlines()]
     assert 'Match Group sk-sftp' in lines
     assert 'ChrootDirectory /srv/sftp-jails/%u' in lines
-    assert 'ForceCommand internal-sftp -d /site -m 0664' in lines
+    assert 'ForceCommand internal-sftp -d /site' in lines
     assert 'PermitTTY no' in lines
     assert 'AllowTcpForwarding no' in lines
     # sshd reads keys as the connecting user; /etc/serverkit is 0750 root.
@@ -304,3 +304,21 @@ def test_app_targets_offer_container_folders_but_apply_the_policy(app, svc, monk
     paths = [t['path'] for t in svc.app_targets()]
     # Mounted site folder first, app folder last; system paths and homes never offered.
     assert paths == ['/srv/shop/htdocs', '/srv/shop/stack']
+
+
+SSHD_T = 'port 22\nsubsystem sftp /usr/lib/openssh/sftp-server\n'
+
+
+def test_sftp_flags_check_catches_an_option_the_binary_refuses(svc, fake_subprocess):
+    # Ubuntu's sftp-server has no -m: it printed usage and every session closed.
+    fake_subprocess.script(['sshd', '-T'], stdout=SSHD_T)
+    fake_subprocess.script(['sftp-server'], returncode=1, stderr='usage: sftp-server [-ehR] ...')
+    assert 'usage' in svc._check_sftp_flags()
+
+
+def test_sftp_flags_check_passes_when_the_binary_accepts_them(svc, fake_subprocess):
+    fake_subprocess.script(['sshd', '-T'], stdout=SSHD_T)
+    fake_subprocess.script(['sftp-server'], returncode=0)
+    assert svc._check_sftp_flags() is None
+    argv = fake_subprocess.argv_for(['sftp-server'])
+    assert argv[0] == '/usr/lib/openssh/sftp-server' and '-e' in argv

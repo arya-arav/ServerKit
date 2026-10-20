@@ -80,15 +80,19 @@ class SFTPError(Exception):
 # Pure helpers (no system access) — the parts the tests pin down.
 # --------------------------------------------------------------------------
 
+# Flags for internal-sftp. Only options every OpenSSH build has: Ubuntu's
+# sftp-server rejects -m (force file mode) and exits at once, which sshd -t
+# does not catch, so setup() also runs sftp-server with exactly these flags.
+SFTP_FLAGS = ('-d', f'/{MOUNT_NAME}')
+
+
 def render_sshd_dropin() -> str:
     """The sshd drop-in that confines the sk-sftp group."""
     return (
         '# Managed by ServerKit (serverkit-sftp extension). Changes are overwritten.\n'
         f'Match Group {GROUP}\n'
         f'    ChrootDirectory {JAIL_BASE}/%u\n'
-        # -m: uploads are 0664 regardless of the client, so the default ACL
-        # entries (folder owner rw, folder group r) are not masked down to r.
-        f'    ForceCommand internal-sftp -d /{MOUNT_NAME} -m 0664\n'
+        f'    ForceCommand internal-sftp {" ".join(SFTP_FLAGS)}\n'
         f'    AuthorizedKeysFile {KEYS_DIR}/%u\n'
         '    PasswordAuthentication yes\n'
         '    PubkeyAuthentication yes\n'
@@ -284,6 +288,22 @@ def _is_mounted(path: str) -> bool:
         return False
 
 
+def _check_sftp_flags() -> Optional[str]:
+    """Run the sftp subsystem binary with SFTP_FLAGS; None when it accepts them.
+
+    internal-sftp is the same code as the sftp-server binary, so an option the
+    binary refuses would end every session right after login. With stdin at
+    EOF a working sftp-server exits 0 at once.
+    """
+    binary = (_sshd_settings().get('subsystem', '').split() + ['', ''])[1]
+    if not binary.startswith('/'):
+        return None  # cannot locate it; sshd -t already passed
+    result = run_checked([binary, '-e', '-d', '/', *SFTP_FLAGS[2:]], input='', timeout=10)
+    if result.get('returncode') == 0:
+        return None
+    return ((result.get('stderr') or result.get('output') or '').strip() or 'unknown error')[:300]
+
+
 def _sshd_unit() -> str:
     return 'ssh' if unit_is_active('ssh') else 'sshd'
 
@@ -462,6 +482,11 @@ def setup() -> dict:
         run_privileged(['rm', '-f', SSHD_DROPIN])
         raise SFTPError('sshd rejected the SFTP rule, so it was removed again: '
                         + (test.get('stderr') or test.get('error') or '').strip()[:300])
+    flags_error = _check_sftp_flags()
+    if flags_error:
+        run_privileged(['rm', '-f', SSHD_DROPIN])
+        raise SFTPError('The SFTP server rejected its options, so the rule was removed again: '
+                        + flags_error)
     _require(ServiceControl.reload(_sshd_unit()), 'Reloading ssh')
     return get_status()
 
