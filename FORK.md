@@ -76,6 +76,7 @@
   - **The fix:** the file is now kept at `/etc/letsencrypt/serverkit-dns/cloudflare-<domain>.ini` (folder 700, file 600) and rewritten on every issuance, so a rotated token takes effect.
   - **Route 53 still has the same gap:** its keys are passed as environment variables that a renewal does not have.
   - Tests: `TestCloudflareCredentialsFile` in `backend/tests/test_advanced_ssl_hardening.py`.
+- **Collapse / Expand button for the sidebar** (`Sidebar.jsx`, `.sidebar-collapse-btn` in `_sidebar.scss`). A button above the user card, and Ctrl+B, switch between the full sidebar and the compact icon rail; the choice is remembered. Upstream only offered the rail inside the user menu's Layout switcher. Hidden on the mobile drawer and in the top-bar layout.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

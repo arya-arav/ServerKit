@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth.js';
 import { useTheme } from '../contexts/useTheme.js';
 import { useLayout } from '../contexts/useLayout.js';
-import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronUp, Layers, Palette, PanelLeft, PanelLeftClose, PanelTop, X, Server } from 'lucide-react';
+import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronUp, Layers, Palette, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelTop, X, Server } from 'lucide-react';
 import { api } from '../services/api';
 import { SIDEBAR_CATEGORIES, SIDEBAR_CATEGORY_LABELS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
 import { useTranslation } from 'react-i18next';
@@ -16,8 +16,9 @@ import { useManagedProfile } from '../contexts/useManagedProfile';
 import QuickCreate from './QuickCreate';
 import { useWorkspace } from '../contexts/useWorkspace.js';
 import { Button as SharedButton } from '@/components/ui/button';
+import { useShortcut } from '../hooks/useShortcut';
 
-const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
+const Sidebar =({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { t } = useTranslation();
     const label = useLabel();
     const { user, logout, hasPermission } = useAuth();
@@ -30,6 +31,23 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
     const [gpuAvailable, setGpuAvailable] = useState(false);
     const menuRef = useRef(null);
     const sidebarRef = useRef(null);
+
+    // One-click switch between the full sidebar and the compact icon rail
+    // (the same 'rail' layout the user menu offers). Desktop side layouts only:
+    // the mobile drawer and the top bar have their own geometry.
+    const collapsible = !isMobile && layout !== 'topbar';
+    const collapsed = layout === 'rail';
+    const toggleCollapsed = () => setLayout(collapsed ? 'sidebar' : 'rail');
+
+    useShortcut({
+        id: 'toggle-sidebar',
+        label: t('nav.toggleSidebar', 'Collapse or expand the sidebar'),
+        group: 'shell',
+        keys: [{ key: 'b', ctrlOrMeta: true }],
+        handler: () => {
+            if (collapsible) toggleCollapsed();
+        },
+    });
 
     // When collapsed to a drawer and closed, take the whole subtree out of the
     // tab order and the accessibility tree. `inert` is set imperatively so it
@@ -546,6 +564,22 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             {t('common.actions.logOut', 'Sign out')}
                         </SharedButton>
                     </div>
+                )}
+                {collapsible && (
+                    <SharedButton variant="unstyled"
+                        type="button"
+                        className="sidebar-collapse-btn"
+                        onClick={toggleCollapsed}
+                        aria-pressed={collapsed}
+                        title={t('nav.toggleSidebarHint', 'Ctrl+B')}
+                    >
+                        {collapsed
+                            ? <PanelLeftOpen size={18} aria-hidden="true" />
+                            : <PanelLeftClose size={18} aria-hidden="true" />}
+                        <span className="sidebar-collapse-btn__label">
+                            {collapsed ? t('nav.expandSidebar', 'Expand') : t('nav.collapseSidebar', 'Collapse')}
+                        </span>
+                    </SharedButton>
                 )}
                 <div className="sidebar-footer__row">
                     <SharedButton variant="unstyled"

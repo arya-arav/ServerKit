@@ -499,6 +499,39 @@
     position: relative;
 }
 
+// Collapse / Expand — switches between the full sidebar and the icon rail.
+.sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    margin-bottom: $space-2;
+    border: none;
+    border-radius: $radius-card;
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: $text-sm;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
+    @include focus-ring();
+
+    svg {
+        flex-shrink: 0;
+        color: var(--text-faint);
+    }
+
+    &:hover {
+        color: var(--text-primary);
+        background-color: var(--surface-hover);
+
+        svg { color: var(--text-dim); }
+    }
+}
+
 // User Context Menu
 .user-context-menu {
     position: absolute;
@@ -735,7 +768,8 @@
 
                 .brand-section,
                 .workspace-switcher__trigger,
-                .user-mini {
+                .user-mini,
+                .sidebar-collapse-btn {
                     justify-content: center;
                     gap: 0;
                 }
@@ -747,6 +781,7 @@
                 .nav-expand-btn,
                 .workspace-switcher__trigger > span,
                 .workspace-switcher__trigger .ui-select-icon,
+                .sidebar-collapse-btn__label,
                 .user-meta,
                 .user-menu-arrow {
                     display: none;
