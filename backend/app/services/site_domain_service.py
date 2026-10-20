@@ -552,7 +552,32 @@ class SiteDomainService:
         if cover and cls.https_enabled(cover) and all(cls.covering_base(d) == cover for d in domains):
             ssl_cert, ssl_key = cls.wildcard_cert_paths(cover)
 
+        if ssl_cert is None:
+            # A custom domain with its own certificate (Domains -> Enable SSL).
+            # Without this every re-render (doctor/drift repair, app edits)
+            # wrote the vhost back as HTTP-only and HTTPS fell through to the
+            # panel's default server.
+            ssl_cert, ssl_key = cls.own_domain_cert_paths(app.id)
         return cls._vhost_create_kwargs(app, domains, ssl_cert, ssl_key, force_type)
+
+    @staticmethod
+    def own_domain_cert_paths(app_id):
+        """(cert, key) of the app's first SSL-enabled domain whose certificate
+        files exist (primary domain first), or (None, None)."""
+        import os
+        from app.models.domain import Domain
+        rows = (Domain.query_active()
+                .filter_by(application_id=app_id, ssl_enabled=True)
+                .order_by(Domain.is_primary.desc(), Domain.id.asc())
+                .all())
+        for d in rows:
+            cert = d.ssl_certificate_path
+            if not cert:
+                continue
+            key = d.ssl_key_path or os.path.join(os.path.dirname(cert), 'privkey.pem')
+            if os.path.isfile(cert) and os.path.isfile(key):
+                return cert, key
+        return None, None
 
     @classmethod
     def set_immutable_assets(cls, app, enabled):

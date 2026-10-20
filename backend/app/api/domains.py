@@ -419,7 +419,8 @@ def enable_ssl(domain_id):
 
     domain.ssl_enabled = True
     domain.ssl_certificate_path = result['certificate_path']
-    domain.ssl_private_key_path = result['private_key_path']
+    # Model column is ssl_key_path (ssl_private_key_path was never persisted).
+    domain.ssl_key_path = result['private_key_path']
     db.session.commit()
 
     # Only after issuance actually worked — remembering an address that
