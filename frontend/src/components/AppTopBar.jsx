@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import NotificationBell from './NotificationBell';
 import AccountMenu from './AccountMenu';
+import SetupHealthIndicator from './SetupHealthIndicator';
 
 // Slim bar across the top of the page column (desktop sidebar and rail
 // layouts): notifications and the account menu on the right. Hidden on mobile,
@@ -11,6 +12,7 @@ const AppTopBar = () => {
     return (
         <header className="app-topbar" aria-label={t('nav.accountBar', 'Account and notifications')}>
             <div className="app-topbar__actions">
+                <SetupHealthIndicator />
                 <NotificationBell />
                 <AccountMenu placement="top" />
             </div>

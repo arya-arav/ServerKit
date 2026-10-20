@@ -270,22 +270,30 @@
 .sidebar-collapse-toggle {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: $control-md;
-    height: $control-md;
-    margin-inline-start: $space-1;
+    gap: $space-3;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
     border: none;
-    border-radius: $radius-control;
+    border-radius: $radius-card;
     background: transparent;
-    color: var(--text-faint);
-    flex-shrink: 0;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: $text-sm;
+    white-space: nowrap;
     cursor: pointer;
     transition: background-color 0.14s ease, color 0.14s ease;
     @include focus-ring();
 
+    svg {
+        flex-shrink: 0;
+        color: var(--text-faint);
+    }
+
     &:hover {
         background: var(--surface-hover);
         color: var(--text-primary);
+
+        svg { color: var(--text-dim); }
     }
 }
 
@@ -638,6 +646,14 @@
     font-size: $text-sm;
     font-weight: $font-weight-semibold;
     color: var(--text-primary);
+    overflow: hidden;
+}
+
+// Profile picture (Settings → Profile) in place of the initial.
+.user-avatar__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .user-menu-arrow {
@@ -741,9 +757,11 @@
             }
 
             .sidebar-collapse-toggle {
-                margin: 0 auto;
+                justify-content: center;
+                gap: 0;
             }
 
+            .sidebar-collapse-toggle__label,
             .brand-text,
             .brand-star,
             .nav-category,

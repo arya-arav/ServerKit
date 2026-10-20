@@ -2609,3 +2609,63 @@
 .sk-ai-message__usage { font-size: $text-xs; color: $text-secondary; border-top: 1px solid $border-subtle; margin-top: $space-3; padding-top: $space-2; overflow-wrap: anywhere;
     summary { cursor: pointer; }
 }
+
+// Settings → Profile: picture and name (fork: arya-arav/ServerKit).
+.profile-picture {
+    display: flex;
+    align-items: center;
+    gap: $space-5;
+    margin-bottom: $space-6;
+
+    &__preview {
+        width: 72px;
+        height: 72px; // geometry: profile picture preview
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: $radius-full;
+        background: linear-gradient(150deg, var(--surface-3), var(--surface-2));
+        color: var(--text-primary);
+        font-size: $text-xl;
+        font-weight: $font-weight-semibold;
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+    }
+
+    &__title {
+        font-weight: $font-weight-medium;
+        color: var(--text-primary);
+    }
+
+    &__actions {
+        display: flex;
+        gap: $space-2;
+        margin-top: $space-2;
+    }
+
+    &__input {
+        display: none;
+    }
+}
+
+.profile-names {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: $space-4;
+
+    .form-group {
+        margin-bottom: $space-1;
+    }
+}

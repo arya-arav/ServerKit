@@ -19,6 +19,7 @@ from app.services import login_link_service
 from app.services import auth_throttle_service
 from app.utils.client_ip import get_client_ip
 from app.utils.i18n import normalize_language
+from app.utils.profile import clean_avatar, clean_name
 from app.exceptions import (
     AuthenticationError, ConflictError, PermissionDeniedError, ValidationError, not_found,
 )
@@ -634,6 +635,19 @@ def update_current_user():
 
     if 'password' in data:
         user.set_password(data['password'])
+
+    # Display name and picture (fork: arya-arav/ServerKit).
+    for field in ('first_name', 'last_name'):
+        if field in data:
+            try:
+                setattr(user, field, clean_name(data[field]))
+            except ValueError as exc:
+                raise ValidationError(str(exc)) from None
+    if 'avatar' in data:
+        try:
+            user.avatar = clean_avatar(data['avatar'])
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from None
 
     if 'sidebar_config' in data:
         config = data['sidebar_config']

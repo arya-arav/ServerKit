@@ -4537,12 +4537,26 @@
             "threads": "Threads"
         },
         "profileTab": {
+            "changePicture": "Change picture",
+            "choosePicture": "Choose a profile picture",
             "contactAnAdministratorToChangeYour": "Contact an administrator to change your role",
             "emailAddress": "Email address",
+            "firstName": "First name",
+            "lastName": "Last name",
             "memberSince": "Member since",
+            "nameHelp": "Shown in the top bar instead of your username.",
+            "picture": "Profile picture",
+            "pictureHelp": "PNG, JPEG or WEBP. Cropped to a square.",
+            "pictureRemoved": "Profile picture removed",
+            "pictureTooLarge": "That image is too large.",
+            "pictureType": "Choose a PNG, JPEG or WEBP image.",
+            "pictureUnreadable": "That image could not be read.",
+            "pictureUpdated": "Profile picture updated",
             "profileSettings": "Profile settings",
+            "removePicture": "Remove",
             "role": "Role",
-            "saveChanges": "Save changes"
+            "saveChanges": "Save changes",
+            "uploadPicture": "Upload picture"
         },
         "projectDetail": {
             "addAnEnvironmentToStartOrganizing": "Add an environment to start organizing this project's services.",
@@ -6223,17 +6237,18 @@
             "unlinkingWillResetBothAppsTo": "Unlinking will reset both services to standalone mode.",
             "usedForCertificateExpiryRemindersFrom": "Used for certificate expiry reminders from Let's Encrypt."
         },
+        "setupHealthIndicator": {
+            "complete": "Setup complete: {{score}}% setup health",
+            "open": "Setup health {{score}}%: {{count}} item(s) to review"
+        },
         "setupHealthWidget": {
-            "allSet": "Setup complete:",
             "criticalCount": "{{count}} critical",
             "dismissHint": "Dismiss (setup health stays in the status bar)",
             "moreInDoctor": "more in Doctor",
             "progress": "Setup health progress",
             "recommendedCount": "{{count}} recommended",
             "review": "Review",
-            "setupHealth": "Setup health",
-            "setupHealth2": "% setup health",
-            "unavailable": "Unavailable"
+            "setupHealth": "Setup health"
         },
         "setupStepAccount": {
             "adminEmail": "Admin email",
@@ -8371,6 +8386,7 @@
         },
         "closeMenu": "Close navigation menu",
         "collapseGroup": "Collapse {{group}}",
+        "collapseSidebar": "Collapse",
         "collapseSidebarHint": "Collapse (Ctrl+B)",
         "collapseSidebarLong": "Collapse the sidebar",
         "cron": "Cron jobs",
@@ -8382,6 +8398,7 @@
         "documentation": "Documentation",
         "domains": "Domains",
         "expandGroup": "Expand {{group}}",
+        "expandSidebar": "Expand",
         "expandSidebarHint": "Expand (Ctrl+B)",
         "expandSidebarLong": "Expand the sidebar",
         "files": "Files",

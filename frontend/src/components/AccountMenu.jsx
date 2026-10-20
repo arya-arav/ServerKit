@@ -20,6 +20,8 @@ const AccountMenu = ({ placement = 'sidebar' }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
     const top = placement === 'top';
+    // "First Last" when set in Settings → Profile, else the username.
+    const displayName = user?.display_name || user?.username || '';
 
     // Close on outside click or Escape; return focus to the trigger when
     // Escape dismisses it.
@@ -158,10 +160,12 @@ const AccountMenu = ({ placement = 'sidebar' }) => {
                 aria-controls={menuId}
             >
                 <span className="user-avatar" aria-hidden="true">
-                    {user?.username?.charAt(0).toUpperCase() || 'U'}
+                    {user?.avatar
+                        ? <img className="user-avatar__img" src={user.avatar} alt="" />
+                        : (displayName.charAt(0).toUpperCase() || 'U')}
                 </span>
                 <span className="user-meta">
-                    <span className="user-handle">{user?.username || t('nav.userFallback', 'User')}</span>
+                    <span className="user-handle">{displayName || t('nav.userFallback', 'User')}</span>
                     <span className="user-status">{t('nav.online', 'Online')}</span>
                 </span>
                 <Arrow size={14} className={`user-menu-arrow ${menuOpen ? 'open' : ''}`} aria-hidden="true" />

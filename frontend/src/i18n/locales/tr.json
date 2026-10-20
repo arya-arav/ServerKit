@@ -6163,16 +6163,13 @@
             "usedForCertificateExpiryRemindersFrom": "Let's Encrypt'den sertifika süre sonu hatırlatmaları için kullanılır."
         },
         "setupHealthWidget": {
-            "allSet": "Her şey hazır —",
             "criticalCount": "{{count}} kritik",
             "dismissHint": "Kapat — kurulum durumu durum çubuğunda kalır",
             "moreInDoctor": "Doktor'da daha fazlası",
             "progress": "Kurulum durumu ilerlemesi",
             "recommendedCount": "{{count}} önerilen",
             "review": "İncele",
-            "setupHealth": "Kurulum Durumu",
-            "setupHealth2": "% kurulum durumu",
-            "unavailable": "Kullanılamıyor"
+            "setupHealth": "Kurulum Durumu"
         },
         "setupStepAccount": {
             "adminEmail": "Yönetici E-postası",

@@ -55,6 +55,49 @@
     }
 }
 
+// Setup health icon (SetupHealthIndicator.jsx), styled like the bell beside it.
+.setup-indicator {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $control-md;
+    height: $control-md;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-control;
+    background: $bg-card;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    @include focus-ring();
+
+    &:hover {
+        background: $bg-hover;
+        border-color: $border-default;
+    }
+
+    &--ok { color: var(--green); }
+    &--warning { color: var(--amber); }
+    &--critical { color: var(--red); }
+
+    &__badge {
+        position: absolute;
+        top: -5px;
+        inset-inline-end: -5px;
+        min-width: 16px;
+        height: 16px; // geometry: counter bubble
+        padding: 0 $space-1;
+        border-radius: $radius-full;
+        background: currentColor;
+        font-size: $text-xs;
+        font-weight: $font-weight-semibold;
+        line-height: 16px;
+        text-align: center;
+
+        // Text in the surface colour over the tone-coloured bubble.
+        & { color: var(--surface); }
+    }
+}
+
 // Account trigger + menu (AccountMenu.jsx). The wrapper anchors the menu.
 .account-menu {
     position: relative;

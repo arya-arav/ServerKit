@@ -50,8 +50,11 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 : t('nav.collapseSidebarHint', 'Collapse (Ctrl+B)')}
         >
             {collapsed
-                ? <PanelLeftOpen size={16} aria-hidden="true" />
-                : <PanelLeftClose size={16} aria-hidden="true" />}
+                ? <PanelLeftOpen size={18} aria-hidden="true" />
+                : <PanelLeftClose size={18} aria-hidden="true" />}
+            <span className="sidebar-collapse-toggle__label">
+                {collapsed ? t('nav.expandSidebar', 'Expand') : t('nav.collapseSidebar', 'Collapse')}
+            </span>
         </SharedButton>
     );
 

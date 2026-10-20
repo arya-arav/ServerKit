@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { ShieldAlert, ShieldCheck, ChevronRight, X } from 'lucide-react';
+import { ShieldAlert, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 
 // Compact "how set-up is this panel" card for the dashboard (admin-only).
 // Reads GET /setup-health and shows the score + the top open items, each
-// deep-linking to its fix. Collapses to a slim "all set" line when clean —
-// no dead card.
+// deep-linking to its fix. Renders nothing when clean: the app top bar's
+// setup-health icon shows the score then.
 
 const DISMISS_KEY = 'serverkit.setupHealth.dismissed';
 
@@ -32,19 +32,8 @@ const SetupHealthWidget = () => {
 
     if (dismissed) return null;
 
-    if (loading || !data || !data.summary) {
-        return (
-            <div className="setup-health-widget setup-health-widget--loading" role="status">
-                <ShieldCheck size={16} />
-                <span>{t('app.setupHealthWidget.setupHealth', 'Setup health')}</span>
-                <span className="setup-health-widget__muted">
-                    {loading
-                        ? t('common.checking', 'Checking…')
-                        : t('app.setupHealthWidget.unavailable', 'Unavailable')}
-                </span>
-            </div>
-        );
-    }
+    // Loading or unavailable → nothing; the top bar's icon covers it.
+    if (loading || !data || !data.summary) return null;
 
     const { summary } = data;
     const openCount = Number(summary.critical_open || 0) + Number(summary.recommended_open || 0);
@@ -54,22 +43,9 @@ const SetupHealthWidget = () => {
         try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
     };
 
-    // Clean → slim "all set" line, not a big empty card.
-    if (openCount === 0) {
-        return (
-            <Button variant="unstyled"
-                type="button"
-                className="setup-health-widget setup-health-widget--clean"
-                onClick={() => navigate('/monitoring/doctor')}
-            >
-                <ShieldCheck size={16} />
-                <span className="setup-health-widget__cleanlabel">
-                    {t('app.setupHealthWidget.allSet', 'Setup complete:')} {summary.score}{t('app.setupHealthWidget.setupHealth2', '% setup health')}
-                </span>
-                <ChevronRight size={14} />
-            </Button>
-        );
-    }
+    // Clean → nothing here: the top bar's setup-health icon shows the score
+    // (fork: arya-arav/ServerKit; this used to be a full-width strip).
+    if (openCount === 0) return null;
 
     return (
         <div className="setup-health-widget">

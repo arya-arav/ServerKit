@@ -59,6 +59,12 @@ class User(JsonColumnMixin, db.Model):
     # Panel-item snoozes live in a SettingsService map instead.
     setup_snoozes = db.Column(db.Text, nullable=True)
 
+    # Display name and profile picture (fork: arya-arav/ServerKit). The picture
+    # is a small PNG/JPEG/WEBP data URL, checked by app/utils/profile.py.
+    first_name = db.Column(db.String(80), nullable=True)
+    last_name = db.Column(db.String(80), nullable=True)
+    avatar = db.Column(db.Text, nullable=True)
+
     # Relationships
     applications = db.relationship('Application', backref='owner', lazy='dynamic')
 
@@ -212,11 +218,21 @@ class User(JsonColumnMixin, db.Model):
         """Store sidebar config as JSON."""
         self._json_write('sidebar_config', config)
 
+    @property
+    def display_name(self):
+        """"First Last" when a name is set, else the username."""
+        name = ' '.join(p for p in (self.first_name, self.last_name) if p)
+        return name or self.username
+
     def to_dict(self):
         return {
             'id': self.id,
             'email': self.email,
             'username': self.username,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'display_name': self.display_name,
+            'avatar': self.avatar,
             'role': self.role,
             'permissions': self.get_permissions(),
             'is_active': self.is_active,

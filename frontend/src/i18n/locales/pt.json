@@ -6163,16 +6163,13 @@
             "usedForCertificateExpiryRemindersFrom": "Usado para lembretes de expiração de certificado do Let's Encrypt."
         },
         "setupHealthWidget": {
-            "allSet": "Tudo pronto -",
             "criticalCount": "{{count}} críticos",
             "dismissHint": "Dispensar — a integridade da configuração permanece na barra de status",
             "moreInDoctor": "mais em Doutor",
             "progress": "Progresso da integridade da configuração",
             "recommendedCount": "{{count}} recomendados",
             "review": "Revisar",
-            "setupHealth": "Integridade da configuração",
-            "setupHealth2": "% de integridade da configuração",
-            "unavailable": "Indisponível"
+            "setupHealth": "Integridade da configuração"
         },
         "setupStepAccount": {
             "adminEmail": "E-mail do administrador",
