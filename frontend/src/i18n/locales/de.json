@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Repository verbunden",
             "repositoryDisconnected": "Repository getrennt",
             "requesting": "Wird angefordert…",
-            "requestingCertificateFor": "Zertifikat für {{primaryDomain}} wird angefordert...",
             "resourceLimits": "Ressourcengrenzen",
             "scaffoldedServerkitYaml": "Gerüstetes serverkit.yaml",
             "serviceSettingsSections": "Abschnitte mit den Diensteinstellungen",

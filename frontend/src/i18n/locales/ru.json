@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Репозиторий подключен",
             "repositoryDisconnected": "Репозиторий отключен",
             "requesting": "Запрос…",
-            "requestingCertificateFor": "Запрос сертификата для {{primaryDomain}}...",
             "resourceLimits": "Ограничения ресурсов",
             "scaffoldedServerkitYaml": "Заготовленный файл serverkit.yaml",
             "serviceSettingsSections": "Разделы настроек сервиса",

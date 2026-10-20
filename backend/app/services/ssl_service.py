@@ -191,8 +191,14 @@ class SSLService:
 
     @classmethod
     def obtain_certificate(cls, domains: List[str], email: str,
-                           webroot_path: str = None, use_nginx: bool = True) -> Dict:
-        """Obtain a new SSL certificate from Let's Encrypt."""
+                           webroot_path: str = None, use_nginx: bool = True,
+                           cert_name: str = None) -> Dict:
+        """Obtain a new SSL certificate from Let's Encrypt.
+
+        *cert_name* pins certbot's lineage name, so one certificate covering
+        several names (a service's primary domain plus its aliases) keeps a
+        predictable path and is expanded in place when names are added.
+        """
         if not cls.is_certbot_installed():
             install_result = cls.install_certbot()
             if not install_result['success']:
@@ -223,13 +229,16 @@ class SSLService:
                 '--non-interactive',
                 '--expand'
             ])
+            if cert_name:
+                cmd.extend(['--cert-name', cert_name])
 
             result = run_privileged(cmd, timeout=300)
 
             if result.returncode == 0:
                 primary_domain = domains[0]
-                cert_path = f'{cls.CERTS_DIR}/{primary_domain}/fullchain.pem'
-                key_path = f'{cls.CERTS_DIR}/{primary_domain}/privkey.pem'
+                lineage = cert_name or primary_domain
+                cert_path = f'{cls.CERTS_DIR}/{lineage}/fullchain.pem'
+                key_path = f'{cls.CERTS_DIR}/{lineage}/privkey.pem'
 
                 response = {
                     'success': True,

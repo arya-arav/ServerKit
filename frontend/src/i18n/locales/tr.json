@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Kod deposu bağlandı",
             "repositoryDisconnected": "Kod deposunun bağlantısı kesildi",
             "requesting": "İsteniyor…",
-            "requestingCertificateFor": "{{primaryDomain}} için sertifika isteniyor...",
             "resourceLimits": "Kaynak Sınırları",
             "scaffoldedServerkitYaml": "İskele sunucu seti.yaml",
             "serviceSettingsSections": "Hizmet ayarları bölümleri",

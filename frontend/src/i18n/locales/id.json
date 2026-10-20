@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Repositori terhubung",
             "repositoryDisconnected": "Repositori terputus",
             "requesting": "Meminta…",
-            "requestingCertificateFor": "Meminta sertifikat untuk {{primaryDomain}}...",
             "resourceLimits": "Batasan Sumber Daya",
             "scaffoldedServerkitYaml": "Serverkit.yaml perancah",
             "serviceSettingsSections": "Bagian pengaturan layanan",

@@ -148,8 +148,12 @@ class TestEnableSslUsesTheStoredContact:
     def _enable(self, client, headers, domain, body):
         cert = {'success': True, 'certificate_path': '/c.pem',
                 'private_key_path': '/k.pem'}
+        # Enable SSL now covers every domain of the app and skips names
+        # without DNS; the fixture's example.com name never resolves.
         with patch('app.api.domains.SSLService.obtain_certificate',
                    return_value=cert) as obtain, \
+                patch('app.services.site_domain_service.SiteDomainService._resolves',
+                      return_value=True), \
                 patch('app.api.domains.NginxService.add_ssl_to_site',
                       return_value={'success': True}):
             resp = client.post(f'/api/v1/domains/{domain.id}/ssl/enable',
@@ -189,9 +193,12 @@ class TestEnableSslUsesTheStoredContact:
         remembering none."""
         headers, _ = admin_headers
         with patch('app.api.domains.SSLService.obtain_certificate',
-                   return_value={'success': False, 'error': 'rejected'}):
+                   return_value={'success': False, 'error': 'rejected'}) as obtain, \
+                patch('app.services.site_domain_service.SiteDomainService._resolves',
+                      return_value=True):
             resp = client.post(f'/api/v1/domains/{ssl_domain.id}/ssl/enable',
                                json={'email': EXPLICIT}, headers=headers)
 
         assert resp.status_code == 400
+        obtain.assert_called_once()  # failed at issuance, not before it
         assert not (SettingsService.get(ACME_EMAIL_SETTING) or '')

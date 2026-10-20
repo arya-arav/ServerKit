@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Référentiel connecté",
             "repositoryDisconnected": "Dépôt déconnecté",
             "requesting": "Demande…",
-            "requestingCertificateFor": "Demande de certificat pour {{primaryDomain}}...",
             "resourceLimits": "Limites des ressources",
             "scaffoldedServerkitYaml": "Serverkit.yaml échafaudé",
             "serviceSettingsSections": "Sections des paramètres du service",

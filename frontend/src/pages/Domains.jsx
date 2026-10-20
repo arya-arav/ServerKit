@@ -246,7 +246,8 @@ const Domains = () => {
         const appId = parseInt(selectedAppId, 10);
         try {
             setActionLoading(true);
-            await attachDomain(appId, domainName, domainInfo, { isPrimary });
+            const res = await attachDomain(appId, domainName, domainInfo, { isPrimary });
+            if (res?.ssl_notice) toast.info(res.ssl_notice, { duration: 8000 });
             setShowAddModal(false);
             setDomainName('');
             setSelectedAppId('');
@@ -281,7 +282,11 @@ const Domains = () => {
         if (!selectedDomain || !email) return;
         try {
             setActionLoading(true);
-            await api.enableSsl(selectedDomain.id, email);
+            // Covers every domain of the service, so the message names them
+            // (and any it had to skip for missing DNS).
+            const res = await api.enableSsl(selectedDomain.id, email);
+            if (res?.message) toast.success(res.message, { duration: 8000 });
+            if (res?.warning) toast.warning(res.warning);
             setShowSslModal(false);
             setSslEmail('');
             setSelectedDomain(null);

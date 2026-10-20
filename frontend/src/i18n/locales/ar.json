@@ -6145,7 +6145,6 @@
             "repositoryConnected": "المستودع متصل",
             "repositoryDisconnected": "تم قطع اتصال المستودع",
             "requesting": "جارٍ الطلب…",
-            "requestingCertificateFor": "جارٍ طلب شهادة {{primaryDomain}}...",
             "resourceLimits": "حدود الموارد",
             "scaffoldedServerkitYaml": "سقالة serverkit.yaml",
             "serviceSettingsSections": "أقسام إعدادات الخدمة",

@@ -529,6 +529,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
         try {
             const res = await attachDomain(app.id, name, info, { isPrimary: domains.length === 0 });
             if (res.warning) toast.warning(res.warning);
+            if (res.ssl_notice) toast.info(res.ssl_notice, { duration: 8000 });
             toast.success(res.url
                 ? t('app.settingsTab.publishedAt', 'Published at {{url}}', { url: res.url })
                 : res.message || t('app.settingsTab.domainAttached', 'Domain attached'));
@@ -549,29 +550,22 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
         if (!email.trim() || !email.includes('@')) { toast.error(t('app.settingsTab.enterAValidEmailForCertificate', 'Enter a valid email for certificate expiry notices')); return; }
         localStorage.setItem('serverkit_ssl_email', email.trim());
         setIssuing(true);
-        toast.info(t('app.settingsTab.requestingCertificateFor', 'Requesting certificate for {{primaryDomain}}…', { primaryDomain: primaryDomain }), { duration: 4000 });
+        toast.info(t('app.settingsTab.requestingCertificateForAll', 'Requesting one certificate for all of this service\'s domains…'), { duration: 4000 });
         try {
-            const res = await api.obtainCertificate({
-                domains: [primaryDomain],
-                email,
-                use_nginx: true,
-            });
-            if (res.success) {
-                toast.success(res.message || t('app.settingsTab.certificateIssued', 'Certificate issued'));
-                // Mark the domain as SSL-enabled in ServerKit.
-                const primary = domains.find(d => d.is_primary) || domains[0];
-                if (primary?.id) {
-                    await api.updateDomain(primary.id, { ssl_enabled: true, ssl_auto_renew: true }).catch(() => {});
-                }
-                const updated = await api.getSSLHealth(primaryDomain);
-                setHealth(updated);
-                window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
-                    detail: { type: 'service-ssl-enabled' },
-                }));
-                onUpdate();
-            } else {
-                toastError(toast, t('app.settingsTab.certificateRequestFailed', "Couldn't request the certificate."), res.error);
-            }
+            // One certificate for every domain of the service, installed on its
+            // nginx site — the same action as Domains -> Enable SSL. Issuing
+            // for the primary alone left aliases with a name mismatch and
+            // never wired the certificate into nginx.
+            const primary = domains.find(d => d.is_primary) || domains[0];
+            const res = await api.enableSsl(primary.id, email);
+            toast.success(res.message || t('app.settingsTab.certificateIssued', 'Certificate issued'));
+            if (res.warning) toast.warning(res.warning);
+            const updated = await api.getSSLHealth(primaryDomain);
+            setHealth(updated);
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'service-ssl-enabled' },
+            }));
+            onUpdate();
         } catch (err) {
             toastError(toast, t('app.settingsTab.certificateRequestFailed', "Couldn't request the certificate."), err);
         } finally {

@@ -6145,7 +6145,6 @@
             "repositoryConnected": "存储库已连接",
             "repositoryDisconnected": "存储库已断开连接",
             "requesting": "正在请求…",
-            "requestingCertificateFor": "正在请求 {{primaryDomain}} 的证书...",
             "resourceLimits": "资源限制",
             "scaffoldedServerkitYaml": "脚手架 serverkit.yaml",
             "serviceSettingsSections": "服务设置部分",

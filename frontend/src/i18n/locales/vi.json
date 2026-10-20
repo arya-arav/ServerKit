@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Đã kết nối kho lưu trữ",
             "repositoryDisconnected": "Kho lưu trữ bị ngắt kết nối",
             "requesting": "Đang yêu cầu…",
-            "requestingCertificateFor": "Đang yêu cầu chứng chỉ cho {{primaryDomain}}...",
             "resourceLimits": "Giới hạn tài nguyên",
             "scaffoldedServerkitYaml": "Giàn giáo serverkit.yaml",
             "serviceSettingsSections": "Phần cài đặt dịch vụ",

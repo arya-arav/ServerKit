@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Archivio connesso",
             "repositoryDisconnected": "Archivio disconnesso",
             "requesting": "Richiesta…",
-            "requestingCertificateFor": "Richiesta certificato per {{primaryDomain}}...",
             "resourceLimits": "Limiti delle risorse",
             "scaffoldedServerkitYaml": "serverkit.yaml con impalcatura",
             "serviceSettingsSections": "Sezioni delle impostazioni del servizio",

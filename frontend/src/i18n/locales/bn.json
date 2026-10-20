@@ -6145,7 +6145,6 @@
             "repositoryConnected": "সংগ্রহস্থল সংযুক্ত",
             "repositoryDisconnected": "সংগ্রহস্থল সংযোগ বিচ্ছিন্ন",
             "requesting": "অনুরোধ করা হচ্ছে…",
-            "requestingCertificateFor": "{{primaryDomain}} এর জন্য শংসাপত্রের অনুরোধ করা হচ্ছে...",
             "resourceLimits": "সম্পদ সীমা",
             "scaffoldedServerkitYaml": "স্ক্যাফোল্ডেড serverkit.yaml",
             "serviceSettingsSections": "পরিষেবা সেটিংস বিভাগ",

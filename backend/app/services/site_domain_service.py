@@ -579,6 +579,72 @@ class SiteDomainService:
                 return cert, key
         return None, None
 
+    @staticmethod
+    def _resolves(name):
+        """True when *name* has any DNS address — Let's Encrypt cannot validate
+        a name that does not, and one such name fails the whole request."""
+        import socket
+        try:
+            return bool(socket.getaddrinfo(name, None))
+        except (socket.gaierror, UnicodeError, OSError):
+            return False
+
+    @classmethod
+    def enable_app_https(cls, app, email):
+        """Issue ONE certificate covering every domain of ``app`` and publish it.
+
+        The vhost serves all of an app's domains (``server_name`` lists them),
+        so a certificate for just the clicked name left every alias with a
+        name mismatch over HTTPS. The certificate's lineage is named after the
+        primary domain, so later calls expand it in place. Names that do not
+        resolve yet are skipped (reported back) instead of failing everything.
+
+        Returns ``{'success', 'domains', 'skipped', 'certificate', 'warning'}``
+        or ``{'success': False, 'error'}``.
+        """
+        from app import db
+        from app.models.domain import Domain
+        from app.services.nginx_service import NginxService
+        from app.services.ssl_service import SSLService
+
+        rows = (Domain.query_active().filter_by(application_id=app.id)
+                .order_by(Domain.is_primary.desc(), Domain.id.asc()).all())
+        if not rows:
+            return {'success': False, 'error': 'This service has no domains.'}
+        names, skipped = [], []
+        for row in rows:
+            (names if cls._resolves(row.name) else skipped).append(row.name)
+        if not names:
+            return {'success': False,
+                    'error': 'None of the domains resolve in DNS yet: ' + ', '.join(skipped)}
+
+        result = SSLService.obtain_certificate(domains=names, email=email,
+                                               use_nginx=True, cert_name=names[0])
+        if not result.get('success'):
+            return {'success': False, 'error': result.get('error', 'Failed to obtain certificate')}
+
+        cert, key = result['certificate_path'], result['private_key_path']
+        for row in rows:
+            if row.name in names:
+                row.ssl_enabled = True
+                row.ssl_certificate_path = cert
+                row.ssl_key_path = key
+        db.session.commit()
+
+        # Re-render through the normal pipeline (it picks this certificate up
+        # via own_domain_cert_paths); fall back to patching the existing site
+        # for app types host nginx does not render.
+        published = cls.write_app_vhost(app)
+        warning = published.get('warning')
+        if published.get('nginx') is None or warning:
+            patched = NginxService.add_ssl_to_site(app.name, cert, key)
+            if not patched.get('success'):
+                return {'success': False,
+                        'error': patched.get('error') or warning or 'Failed to configure nginx'}
+            warning = None
+        return {'success': True, 'domains': names, 'skipped': skipped,
+                'certificate': result, 'warning': warning}
+
     @classmethod
     def set_immutable_assets(cls, app, enabled):
         """Save the fingerprinted-asset caching flag and republish the vhost

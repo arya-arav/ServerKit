@@ -6145,7 +6145,6 @@
             "repositoryConnected": "Repositório conectado",
             "repositoryDisconnected": "Repositório desconectado",
             "requesting": "Solicitando…",
-            "requestingCertificateFor": "Solicitando certificado para {{primaryDomain}}...",
             "resourceLimits": "Limites de recursos",
             "scaffoldedServerkitYaml": "ServerKit com andaime.yaml",
             "serviceSettingsSections": "Seções de configurações de serviço",

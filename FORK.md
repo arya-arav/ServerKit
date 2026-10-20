@@ -24,6 +24,11 @@
   - In secure (HTTPS) mode a catch-all default server now drops unknown names: `return 444` on :80, while ACME challenges still pass, and `ssl_reject_handshake` on :443.
   - The panel blocks use `server_name YOUR_DOMAIN`, which install/update fill in from `/etc/serverkit/panel-domain` together with the certificate path.
   - HTTP-only installs without a panel domain are unchanged, so first-time setup by IP still works.
+- **HTTPS covers every domain of a service** (`SiteDomainService.enable_app_https`, `domains.py` enable/disable/renew SSL, `SettingsTab.jsx`, `Domains.jsx`). A service's domains share one vhost, but upstream "Enable SSL" asked for a certificate for the clicked name only and put it on the whole vhost, so aliases had a name mismatch.
+  - The service Settings tab issued a certificate for the primary domain and only flipped a flag. It never stored the path or touched nginx.
+  - Both buttons now request one certificate for all the service's domains, primary first, with certbot `--cert-name <primary>` so the certificate is expanded in place. Names with no DNS record are skipped and reported. Covered domains get the certificate and the vhost is re-rendered at once.
+  - Disable SSL re-renders too. Renew uses the certificate's lineage, not the alias name. Attaching a domain to a service that already serves HTTPS returns an `ssl_notice`.
+  - Tests: `backend/tests/test_app_https_all_domains.py`.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.

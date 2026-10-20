@@ -6160,7 +6160,7 @@
             "repositoryConnected": "Repository connected",
             "repositoryDisconnected": "Repository disconnected",
             "requesting": "Requesting…",
-            "requestingCertificateFor": "Requesting certificate for {{primaryDomain}}…",
+            "requestingCertificateForAll": "Requesting one certificate for all of this service's domains…",
             "resourceLimits": "Resource limits",
             "scaffoldedServerkitYaml": "Scaffolded serverkit.yaml",
             "serviceSettingsSections": "Service settings sections",

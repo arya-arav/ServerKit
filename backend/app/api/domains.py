@@ -230,6 +230,13 @@ def create_domain():
     if port_warning:
         response['warning'] = port_warning
 
+    # The app already serves HTTPS with its own certificate, which does not
+    # list this new name yet: say so, rather than let HTTPS show a mismatch.
+    from app.services.site_domain_service import SiteDomainService
+    if not domain.ssl_enabled and SiteDomainService.own_domain_cert_paths(app.id)[0]:
+        response['ssl_notice'] = (f'{domain.name} is not on this service\'s HTTPS certificate yet. '
+                                  'Use Enable SSL on any of its domains to add it.')
+
     return jsonify(response), 201
 
 
@@ -397,41 +404,32 @@ def enable_ssl(domain_id):
                                  'default contact in Settings to stop being '
                                  'asked for it per certificate.'}), 400
 
-    # Request Let's Encrypt certificate
-    result = SSLService.obtain_certificate(
-        domains=[domain.name],
-        email=email,
-        use_nginx=True
-    )
-
+    # One certificate for every domain of the app: they share one vhost, so a
+    # certificate for just this name broke HTTPS on the others.
+    from app.services.site_domain_service import SiteDomainService
+    result = SiteDomainService.enable_app_https(app, email)
     if not result['success']:
-        return jsonify({'error': result.get('error', 'Failed to obtain certificate')}), 400
-
-    # Add SSL to Nginx site
-    nginx_result = NginxService.add_ssl_to_site(
-        app.name,
-        result['certificate_path'],
-        result['private_key_path']
-    )
-
-    if not nginx_result['success']:
-        return jsonify({'error': nginx_result.get('error', 'Failed to configure Nginx')}), 400
-
-    domain.ssl_enabled = True
-    domain.ssl_certificate_path = result['certificate_path']
-    # Model column is ssl_key_path (ssl_private_key_path was never persisted).
-    domain.ssl_key_path = result['private_key_path']
-    db.session.commit()
+        return jsonify({'error': result['error']}), 400
 
     # Only after issuance actually worked — remembering an address that
     # Let's Encrypt rejected would be worse than not remembering one.
     remember_acme_contact(data.get('email'), user_id=current_user_id)
 
-    return jsonify({
-        'message': 'SSL enabled for domain',
+    db.session.refresh(domain)
+    message = 'HTTPS enabled for ' + ', '.join(result['domains'])
+    if result['skipped']:
+        message += ('. Not covered yet (no DNS record): ' + ', '.join(result['skipped'])
+                    + '. Run Enable SSL again once they resolve.')
+    body = {
+        'message': message,
         'domain': domain.to_dict(),
-        'certificate': result
-    }), 200
+        'domains_covered': result['domains'],
+        'domains_skipped': result['skipped'],
+        'certificate': result['certificate'],
+    }
+    if result.get('warning'):
+        body['warning'] = result['warning']
+    return jsonify(body), 200
 
 
 @domains_bp.route('/<int:domain_id>/ssl/disable', methods=['POST'])
@@ -452,11 +450,16 @@ def disable_ssl(domain_id):
 
     domain.ssl_enabled = False
     db.session.commit()
+    # Re-render now; otherwise nginx kept serving HTTPS until the next edit.
+    nginx_result = _publish_app_vhost(app)
 
-    return jsonify({
+    body = {
         'message': 'SSL disabled for domain',
         'domain': domain.to_dict()
-    }), 200
+    }
+    if nginx_result and nginx_result.get('warning'):
+        body['warning'] = nginx_result['warning']
+    return jsonify(body), 200
 
 
 @domains_bp.route('/<int:domain_id>/ssl/renew', methods=['POST'])
@@ -478,7 +481,12 @@ def renew_ssl(domain_id):
     if not domain.ssl_enabled:
         return jsonify({'error': 'SSL is not enabled for this domain'}), 400
 
-    result = SSLService.renew_certificate(domain.name)
+    # The certificate may be shared and named after the primary domain
+    # (/etc/letsencrypt/live/<lineage>/...); renew that lineage.
+    import os
+    lineage = (os.path.basename(os.path.dirname(domain.ssl_certificate_path))
+               if domain.ssl_certificate_path else domain.name)
+    result = SSLService.renew_certificate(lineage)
 
     if result['success']:
         return jsonify({

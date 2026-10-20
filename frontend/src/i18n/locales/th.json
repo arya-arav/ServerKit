@@ -6145,7 +6145,6 @@
             "repositoryConnected": "เชื่อมต่อที่เก็บข้อมูลแล้ว",
             "repositoryDisconnected": "ที่เก็บถูกตัดการเชื่อมต่อ",
             "requesting": "กำลังร้องขอ…",
-            "requestingCertificateFor": "ขอใบรับรอง {{primaryDomain}}...",
             "resourceLimits": "ขีดจำกัดทรัพยากร",
             "scaffoldedServerkitYaml": "serverkit.yaml แบบนั่งร้าน",
             "serviceSettingsSections": "ส่วนการตั้งค่าบริการ",

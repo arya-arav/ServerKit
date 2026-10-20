@@ -6145,7 +6145,6 @@
             "repositoryConnected": "儲存庫已連線",
             "repositoryDisconnected": "儲存庫已斷開連線",
             "requesting": "正在申請…",
-            "requestingCertificateFor": "正在請求 {{primaryDomain}} 的憑證…",
             "resourceLimits": "資源限制",
             "scaffoldedServerkitYaml": "產生的 serverkit.yaml 範本",
             "serviceSettingsSections": "服務設定部分",
