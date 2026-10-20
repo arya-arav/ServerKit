@@ -8355,6 +8355,7 @@
         "lapsed": "The managed profile from ServerKit Cloud lapsed, so the full panel is back. It returns if Cloud reconnects and re-sends it."
     },
     "nav": {
+        "accountBar": "Account and notifications",
         "accountMenu": "Account and settings",
         "allSettings": "All settings",
         "appMap": "App map",

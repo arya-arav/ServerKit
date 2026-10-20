@@ -265,14 +265,15 @@
     text-overflow: ellipsis;
 }
 
-// Brand row: logo → name → GitHub star → collapse/expand toggle (fork; the
-// toggle replaced the "+" quick-create, whose palette is still Ctrl+K).
+// Collapse/expand toggle, bottom-left of the sidebar (fork). The brand row's
+// "+" quick-create it once replaced is gone; its palette is still Ctrl+K.
 .sidebar-collapse-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: $control-sm;
-    height: $control-sm;
+    width: $control-md;
+    height: $control-md;
+    margin-inline-start: $space-1;
     border: none;
     border-radius: $radius-control;
     background: transparent;
@@ -288,9 +289,6 @@
     }
 }
 
-.brand-section--custom .sidebar-collapse-toggle {
-    margin-inline-start: auto;
-}
 
 // Scrollable Navigation Container
 // Active-workspace selector (#33) — sits between the brand and the nav.
@@ -699,7 +697,7 @@
     }
 
     .main-content {
-        transition: margin-left 0.2s $ease-out-quint;
+        transition: margin-inline-start 0.2s $ease-out-quint;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -731,19 +729,19 @@
                 padding-left: 0.625rem;
             }
 
-            // Logo above the Expand toggle.
-            .brand-section {
-                flex-direction: column;
-                justify-content: center;
-                height: auto;
-                padding: $space-3 0;
-                gap: $space-2;
-            }
-
+            .brand-section,
             .workspace-switcher__trigger,
             .user-mini {
                 justify-content: center;
                 gap: 0;
+            }
+
+            .brand-section {
+                padding: 0;
+            }
+
+            .sidebar-collapse-toggle {
+                margin: 0 auto;
             }
 
             .brand-text,
@@ -755,12 +753,6 @@
             .user-meta,
             .user-menu-arrow {
                 display: none;
-            }
-
-            // The account menu cannot fit inside 64px; let it open wider.
-            .user-context-menu {
-                right: auto;
-                width: 240px; // geometry: account menu width beside the rail
             }
         }
     }

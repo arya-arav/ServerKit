@@ -270,6 +270,7 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 $sidebar-width: 250px;
 $sidebar-rail-width: 64px;
 $header-height: 64px;
+$app-topbar-height: 52px; // fork: account + notifications bar (layout/_app-topbar.scss)
 $mobile-header-height: 56px;
 $sidebar-header-height: 70px;
 $sidebar-logo-size: 42px;

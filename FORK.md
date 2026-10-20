@@ -76,7 +76,12 @@
   - **The fix:** the file is now kept at `/etc/letsencrypt/serverkit-dns/cloudflare-<domain>.ini` (folder 700, file 600) and rewritten on every issuance, so a rotated token takes effect.
   - **Route 53 still has the same gap:** its keys are passed as environment variables that a renewal does not have.
   - Tests: `TestCloudflareCredentialsFile` in `backend/tests/test_advanced_ssl_hardening.py`.
-- **Collapse / Expand toggle for the sidebar** (`Sidebar.jsx`, `.sidebar-collapse-toggle` in `_sidebar.scss`). A button in the brand row, and Ctrl+B, switch between the full sidebar and a narrow icon rail; the page column stretches and narrows with it, both animated, and the choice is remembered. The rail no longer opens over the page on hover: each icon shows its name as a tooltip instead. It replaces the brand row's "+" quick-create button (the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+"). Upstream only offered the rail inside the user menu's Layout switcher. Hidden on the mobile drawer and in the top-bar layout.
+- **Sidebar collapse toggle and an app top bar** (`Sidebar.jsx`, `AppTopBar.jsx`, `AccountMenu.jsx`, `layout/_app-topbar.scss`).
+  - **Collapse / Expand:** a button at the bottom-left of the sidebar, and Ctrl+B, switch between the full sidebar and a narrow icon rail. The page column stretches and narrows with it, both animated, and the choice is remembered. Upstream only offered the rail inside the user menu's Layout switcher.
+  - **The rail stays narrow:** it no longer opens over the page on hover; each icon shows its name as a tooltip instead.
+  - **App top bar:** a slim bar across the page column carries the notification bell and the account menu at the top right. Page content starts below it, and full-page tools subtract its height.
+  - **Where the account stays:** on mobile and in the top-bar layout there is no app top bar, so the account stays in the sidebar there.
+  - **The "+" button:** the brand row's quick-create button is gone; the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+".
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

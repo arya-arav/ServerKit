@@ -1,0 +1,89 @@
+// ============================================
+// APP TOP BAR — notifications + account, top right of the page column
+// Desktop sidebar and rail layouts only: on mobile the MobileTopBar holds the
+// top edge, and in the top-bar layout the navigation is the top bar.
+// Fork: arya-arav/ServerKit.
+// ============================================
+.app-topbar {
+    display: none;
+}
+
+.app-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+}
+
+@media (min-width: ($breakpoint-md + 1)) {
+    [data-layout="sidebar"],
+    [data-layout="rail"] {
+        .app-topbar {
+            position: fixed;
+            top: 0;
+            inset-inline-end: 0;
+            inset-inline-start: $sidebar-width;
+            height: $app-topbar-height;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 $space-6;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            z-index: $z-fixed;
+            transition: inset-inline-start 0.2s $ease-out-quint;
+
+            @media (prefers-reduced-motion: reduce) {
+                transition: none;
+            }
+        }
+
+        // The page column starts below the bar.
+        .dashboard-layout .main-content {
+            margin-top: $app-topbar-height;
+        }
+
+        // Full-page tools size themselves to the viewport — subtract the bar.
+        .dashboard-layout .main-content--full-page,
+        .dashboard-layout .main-content:has(.workflow-page.fullscreen),
+        .dashboard-layout .main-content:has(.page-container--full-bleed) {
+            height: calc(100vh - #{$app-topbar-height} - var(--sk-statusbar-height));
+        }
+    }
+
+    [data-layout="rail"] .app-topbar {
+        inset-inline-start: $sidebar-rail-width;
+    }
+}
+
+// Account trigger + menu (AccountMenu.jsx). The wrapper anchors the menu.
+.account-menu {
+    position: relative;
+    display: flex;
+    min-width: 0;
+
+    &--sidebar {
+        flex: 1;
+
+        .user-mini {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+}
+
+// In the top bar the menu drops down from the right edge.
+.user-context-menu.user-context-menu--down {
+    top: calc(100% + #{$space-2});
+    bottom: auto;
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    width: 240px; // geometry: account menu width
+}
+
+.app-topbar .sk-notif__panel {
+    top: calc(100% + 10px);
+    bottom: auto;
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    transform-origin: top right;
+}

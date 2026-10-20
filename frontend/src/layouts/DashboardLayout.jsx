@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import MobileTopBar from '../components/MobileTopBar';
+import AppTopBar from '../components/AppTopBar';
 import CommandPalette from '../components/CommandPalette';
 import { LogsDrawerProvider } from '../contexts/LogsDrawerContext';
 import { AIProvider } from '../contexts/AIContext';
@@ -124,6 +125,7 @@ const DashboardLayout = () => {
             <div className="dashboard-layout">
                 <StagingBanner />
                 <MobileTopBar navOpen={navOpen} onToggle={() => setNavOpen(prev => !prev)} />
+                <AppTopBar />
                 <Sidebar
                     mobileOpen={navOpen}
                     isMobile={isMobile}
