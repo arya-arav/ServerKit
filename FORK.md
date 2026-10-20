@@ -46,6 +46,15 @@
   - Deleting or moving a primary now promotes the oldest remaining domain (`_ensure_primary`). Before, the service was left with no primary.
   - Tests: `backend/tests/test_move_domain.py`.
 - **Verify DNS checks access** (`domains.py` `verify_domain`). It was the only per-domain route without the live-service and `can_access_app` gate, so any logged-in user could probe any domain id, including those of deleted services. Tests: `backend/tests/test_verify_domain_access.py`.
+- **Cloudflare-only web traffic** (`cloudflare_only_service.py`; `GET/PUT /api/v1/firewall/cloudflare-only`, `POST …/refresh`; card in Security → Firewall). A switch that lets ports 80 and 443 accept Cloudflare's edge only, so nobody who finds the origin IP can go around Cloudflare's WAF or Access.
+  - **Oracle images:** INPUT rejects everything before ufw's chains, so for IPv4 ufw never sees a packet. When the host has that reject, the rules go into INPUT ahead of it, live and in `/etc/iptables/rules.v4`. The file is edited as text and checked with `iptables-restore --test`. It is never `netfilter-persistent save`d, which would freeze ufw's, Docker's and CrowdSec's chains into it.
+  - **ufw:** gets one rule per range, IPv4 and IPv6.
+  - **Rules replaced:** open-to-everyone 80/443 rules and hand-made `cloudflare-web` rules. Rules are added before old ones are removed, so Cloudflare is never cut off mid-change.
+  - **Real visitor IPs:** nginx gets `conf.d/serverkit-cloudflare-realip.conf` from the same list, unless another file already sets `real_ip_header`.
+  - **Proxy check:** turning it on is refused (409) while a served domain or the panel domain resolves to anything but Cloudflare; `force` overrides. Turning it off reopens 80/443 with a `serverkit-web` rule.
+  - **Range list:** fetched from cloudflare.com/ips-v4 and /ips-v6, and refused if it looks wrong. Re-checked weekly (`cloudflare-ips-refresh` job, a no-op until the switch is used). The bundled fallback list (`app/utils/cloudflare_ips.py`) is shared with the doctor's DNS check.
+  - **Never touched:** port 22.
+  - Tests: `backend/tests/test_cloudflare_only.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

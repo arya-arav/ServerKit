@@ -664,6 +664,15 @@ def seed_builtin_schedules():
         FLEET_DOCTOR_SCHEDULE_NAME, FLEET_DOCTOR_JOB_KIND,
         interval_seconds=86400, startup_delay_seconds=2400,
     )
+    # Weekly Cloudflare IP refresh — handler registered by
+    # CloudflareOnlyService.register_jobs() at boot; a no-op until the
+    # Cloudflare-only switch is turned on.
+    from app.services.cloudflare_only_service import JOB_KIND as CF_JOB_KIND
+    from app.services.cloudflare_only_service import SCHEDULE_NAME as CF_SCHEDULE_NAME
+    ScheduledJobService.ensure(
+        CF_SCHEDULE_NAME, CF_JOB_KIND,
+        interval_seconds=604800, startup_delay_seconds=1800,
+    )
     # Weekly setup-health nag — handler registered by
     # SetupHealthService.register_jobs() at boot.
     from app.services.setup_health_service import NAG_JOB_KIND, NAG_SCHEDULE_NAME

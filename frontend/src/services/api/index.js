@@ -32,6 +32,7 @@ import * as sharedResourceMethods from './sharedResources.js';
 import * as previewMethods from './previews.js';
 import * as proxyMethods from './proxy.js';
 import * as metadataGuardMethods from './metadataGuard.js';
+import * as cloudflareOnlyMethods from './cloudflareOnly.js';
 import * as speedTestMethods from './speedtest.js';
 import * as dbProcessMethods from './dbProcesses.js';
 import * as dbTunerMethods from './dbTuner.js';
@@ -93,6 +94,7 @@ class ApiService extends ApiClient {
             previewMethods,
             proxyMethods,
             metadataGuardMethods,
+            cloudflareOnlyMethods,
             speedTestMethods,
             dbProcessMethods,
             dbTunerMethods,

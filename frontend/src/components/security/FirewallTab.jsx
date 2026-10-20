@@ -7,6 +7,7 @@ import ErrorState from '@/components/ErrorState';
 import Modal from '../Modal';
 import { InfoList, InfoItem } from '../InfoList';
 import PortField from '../PortField';
+import CloudflareOnlyCard from './CloudflareOnlyCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -689,6 +690,8 @@ const FirewallTab = () => {
                     </SharedCardContent>
                 </SharedCard>
             )}
+
+            <CloudflareOnlyCard />
 
             <GridFilterDrawer {...chrome.drawerProps} />
 

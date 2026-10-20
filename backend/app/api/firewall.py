@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 
 from ..middleware.rbac import admin_required, viewer_required
 from ..services.firewall_service import FirewallService
+from ..services.cloudflare_only_service import CloudflareOnlyService
 from ..services.metadata_guard_service import MetadataGuardService, SETTING_KEY
 from app.api._request import json_object
 
@@ -317,6 +318,47 @@ def set_metadata_guard():
     if not result.get('success') and result.get('supported', True):
         status['error'] = result.get('error', 'Failed to update metadata guard')
         return jsonify(status), 500
+    return jsonify(status), 200
+
+
+@firewall_bp.route('/cloudflare-only', methods=['GET'])
+@viewer_required
+def get_cloudflare_only():
+    """Are ports 80/443 limited to Cloudflare's edge? Fork: arya-arav/ServerKit."""
+    return jsonify(CloudflareOnlyService.status()), 200
+
+
+@firewall_bp.route('/cloudflare-only', methods=['PUT'])
+@admin_required
+def set_cloudflare_only():
+    """Limit ports 80/443 to Cloudflare, or open them to everyone again.
+
+    409 when a served domain is not proxied (it would stop loading); resend
+    with force=true to go ahead anyway.
+    """
+    data = json_object()
+    if not data or 'enabled' not in data:
+        return jsonify({'error': "Request body with 'enabled' required"}), 400
+
+    result = CloudflareOnlyService.apply(bool(data['enabled']), force=bool(data.get('force')))
+    if result.get('blocked_by') == 'unproxied_domains':
+        return jsonify(result), 409
+    status = CloudflareOnlyService.status()
+    if not result.get('success'):
+        status['error'] = result.get('error', 'Failed to update Cloudflare-only mode')
+        return jsonify(status), 500
+    return jsonify(status), 200
+
+
+@firewall_bp.route('/cloudflare-only/refresh', methods=['POST'])
+@admin_required
+def refresh_cloudflare_only():
+    """Download Cloudflare's IP ranges now and re-apply them if the switch is on."""
+    result = CloudflareOnlyService.refresh()
+    status = CloudflareOnlyService.status()
+    if not result.get('success'):
+        status['error'] = result.get('error', 'Refresh failed')
+        return jsonify(status), 502
     return jsonify(status), 200
 
 

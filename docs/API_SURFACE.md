@@ -351,6 +351,7 @@ Regenerate (backend/):
 - `GET /files/search`
 - `GET /files/type-breakdown`
 - `GET /firewall/blocked-ips`
+- `GET /firewall/cloudflare-only`
 - `GET /firewall/metadata-guard`
 - `GET /firewall/rules`
 - `GET /firewall/ssh-preflight`
@@ -969,6 +970,7 @@ Regenerate (backend/):
 - `POST /files/write`
 - `POST /firewall/allow-port`
 - `POST /firewall/block-ip`
+- `POST /firewall/cloudflare-only/refresh`
 - `POST /firewall/deny-port`
 - `POST /firewall/disable`
 - `POST /firewall/enable`
@@ -1311,6 +1313,7 @@ Regenerate (backend/):
 - `PUT /domains/{domain_id}`
 - `PUT /environments/{environment_id}`
 - `PUT /event-subscriptions/{sub_id}`
+- `PUT /firewall/cloudflare-only`
 - `PUT /firewall/metadata-guard`
 - `PUT /git/webhooks/{webhook_id}`
 - `PUT /modules/{name}`

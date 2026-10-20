@@ -460,6 +460,8 @@ def create_app(config_name=None):
                 # Bound the log files the panel writes or causes.
                 from app.services import log_limits_service
                 log_limits_service.converge()
+            from app.services.cloudflare_only_service import CloudflareOnlyService
+            CloudflareOnlyService.register_jobs()
             from app.services.speed_test_service import SpeedTestService
             SpeedTestService.register_jobs()
             from app.services import login_link_service
