@@ -832,6 +832,51 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T25b — firewall_port_has_rule sees restricted rules too, so update.sh's
+# ensure_firewall stops re-adding allow-from-anywhere 80/443 on top of an
+# operator's narrower (e.g. Cloudflare-only) rules on every update.
+# --------------------------------------------------------------------------
+t="$WORK/t25b"; mkdir -p "$t/bin"
+fw_has() {  # <backend> <port> <stub-output>
+    printf '#!/usr/bin/env bash\ncat <<"EOF"\n%s\nEOF\n' "$3" > "$t/bin/$1"
+    chmod +x "$t/bin/$1"
+    ( export PATH="$t/bin:$PATH"; set -Eeuo pipefail
+      # shellcheck source=/dev/null
+      source "$REPO_DIR/scripts/lib/firewall.sh"
+      firewall_port_has_rule "$1" "$2" )
+}
+UFW_CF='Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80,443/tcp                 ALLOW       173.245.48.0/20            # cloudflare-web'
+UFW_SSH_ONLY='Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+8080/tcp                   ALLOW       Anywhere'
+IPT_CF='-P INPUT DROP
+-A INPUT -p tcp -m tcp --dport 22 -j ACCEPT
+-A INPUT -s 173.245.48.0/20 -p tcp -m multiport --dports 80,443 -m comment --comment cloudflare-web -j ACCEPT'
+if fw_has ufw 80 "$UFW_CF" && fw_has ufw 443 "$UFW_CF"; then
+    ok "firewall_port_has_rule sees a source-restricted ufw rule for 80/443"
+else
+    bad "firewall_port_has_rule missed a restricted ufw 80,443 rule (update would widen it again)"
+fi
+if ! fw_has ufw 80 "$UFW_SSH_ONLY"; then
+    ok "firewall_port_has_rule reports no rule for 80 when only 22 and 8080 exist"
+else
+    bad "firewall_port_has_rule matched 8080 as 80"
+fi
+if fw_has iptables 443 "$IPT_CF" && ! fw_has iptables 8443 "$IPT_CF"; then
+    ok "firewall_port_has_rule reads iptables multiport rules"
+else
+    bad "firewall_port_has_rule misread iptables --dports rules"
+fi
+
+# --------------------------------------------------------------------------
 # T26 — regression guards baked into the source (same spirit as
 # test_update.sh T26): the audited failure shapes must never creep back in.
 # --------------------------------------------------------------------------

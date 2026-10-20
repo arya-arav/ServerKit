@@ -1809,18 +1809,35 @@ ensure_firewall() {
         return 0
     fi
 
-    if [ "$DRY_RUN" = "1" ]; then
-        info "[dry-run] would ensure firewall ($backend) allows 80/tcp and 443/tcp"
+    # Only open a web port that has no rule at all. An operator who restricted
+    # 80/443 (say to Cloudflare's ranges) has a rule for it; re-adding an
+    # allow-from-anywhere rule on every update silently undid that.
+    local spec missing=()
+    for spec in 80/tcp 443/tcp; do
+        if command -v firewall_port_has_rule >/dev/null 2>&1 && \
+           firewall_port_has_rule "$backend" "${spec%%/*}"; then
+            continue
+        fi
+        missing+=("$spec")
+    done
+    if [ "${#missing[@]}" -eq 0 ]; then
+        info "Firewall ($backend) already has rules for 80/443 — leaving them as configured"
         return 0
     fi
 
-    firewall_open "$backend" 80/tcp 443/tcp || true
+    if [ "$DRY_RUN" = "1" ]; then
+        info "[dry-run] would ensure firewall ($backend) allows ${missing[*]}"
+        return 0
+    fi
+
+    firewall_open "$backend" "${missing[@]}" || true
     if command -v state_set >/dev/null 2>&1; then
         state_set firewall_backend "$backend" || true
-        state_append firewall_ports 80/tcp || true
-        state_append firewall_ports 443/tcp || true
+        for spec in "${missing[@]}"; do
+            state_append firewall_ports "$spec" || true
+        done
     fi
-    good "Firewall ensured ($backend): 80/tcp and 443/tcp open"
+    good "Firewall ensured ($backend): ${missing[*]} open"
 }
 
 refresh_bash_completion() {

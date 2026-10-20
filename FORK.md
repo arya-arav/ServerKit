@@ -29,6 +29,10 @@
   - Both buttons now request one certificate for all the service's domains, primary first, with certbot `--cert-name <primary>` so the certificate is expanded in place. Names with no DNS record are skipped and reported. Covered domains get the certificate and the vhost is re-rendered at once.
   - Disable SSL re-renders too. Renew uses the certificate's lineage, not the alias name. Attaching a domain to a service that already serves HTTPS returns an `ssl_notice`.
   - Tests: `backend/tests/test_app_https_all_domains.py`.
+- **Updates no longer re-open 80/443 to the world** (`scripts/update.sh` `ensure_firewall`, `scripts/lib/firewall.sh` `firewall_port_has_rule`).
+  - Upstream ran `ufw allow 80/tcp` and `443/tcp` on every update. On this server that re-added allow-from-anywhere rules next to the Cloudflare-only ones.
+  - It now opens a web port only when the firewall has no rule for it at all. Restricted rules count as rules, for ufw, iptables, firewalld and nftables.
+  - Tests: T25b in `scripts/test/test_install.sh`, and the `ensure_firewall` cases at the end of `scripts/test/test_update.sh`.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.

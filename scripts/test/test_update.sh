@@ -1818,5 +1818,46 @@ else
     bad "tree snapshot fallback loses files or duplicates excluded data"
 fi
 
+# ensure_firewall leaves an operator's restricted 80/443 rules alone (it used to
+# add `ufw allow 80/tcp` / `443/tcp` from anywhere on every update) and still
+# opens the ports on a box that has no web rules at all.
+fw="$WORK/ensure-fw"; mkdir -p "$fw/bin"
+fw_ufw_stub() {  # <status text>
+    {
+        printf '#!/usr/bin/env bash\n'
+        printf 'if [ "$1" = status ]; then cat <<"EOF"\n%s\nEOF\nelse echo "$*" >> %s/calls; fi\n' "$1" "$fw"
+    } > "$fw/bin/ufw"
+    chmod +x "$fw/bin/ufw"
+    : > "$fw/calls"
+}
+fw_run() {
+    ( export PATH="$fw/bin:$PATH" FIREWALL_BACKEND=ufw INSTALL_DIR="$SCRIPT_DIR/../.." DRY_RUN=0
+      export SERVERKIT_STATE_FILE="$fw/state.json"
+      ensure_firewall ) >/dev/null 2>&1
+}
+fw_ufw_stub 'Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80,443/tcp                 ALLOW       173.245.48.0/20            # cloudflare-web'
+fw_run
+if [ ! -s "$fw/calls" ]; then
+    ok "ensure_firewall leaves restricted (Cloudflare-only) 80/443 rules alone"
+else
+    bad "ensure_firewall widened restricted web rules: $(tr '\n' ';' < "$fw/calls")"
+fi
+fw_ufw_stub 'Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere'
+fw_run
+if grep -qx 'allow 80/tcp' "$fw/calls" && grep -qx 'allow 443/tcp' "$fw/calls"; then
+    ok "ensure_firewall still opens 80/443 when no web rule exists"
+else
+    bad "ensure_firewall did not open missing web ports: [$(tr '\n' ';' < "$fw/calls")]"
+fi
+
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]

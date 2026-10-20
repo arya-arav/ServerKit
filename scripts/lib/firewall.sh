@@ -183,6 +183,39 @@ firewall_open() {
     esac
 }
 
+# Succeeds when the active firewall already has ANY allow rule for <port> —
+# open to everyone or restricted to some sources (e.g. Cloudflare-only web
+# ports). Callers that "ensure" a port is open use it to leave an operator's
+# deliberate, narrower rules alone instead of widening them to the world.
+# Read-only; capture-then-match so a SIGPIPE under pipefail can't misreport.
+firewall_port_has_rule() {
+    local backend="${1:-}" port="${2:-}" out=""
+    [ -n "$backend" ] && [ -n "$port" ] || return 1
+    case "$backend" in
+        ufw)
+            out="$(ufw status 2>/dev/null || true)"
+            # The first column ("To") holds the port: "80/tcp", "80,443/tcp", "443".
+            printf '%s\n' "$out" | awk '{print $1}' | grep -Eq "(^|,)${port}(,|/|$)"
+            ;;
+        iptables)
+            out="$(iptables -S INPUT 2>/dev/null || true)"
+            printf '%s\n' "$out" | grep -E -- '-j ACCEPT' | \
+                grep -Eq -- "--dport ${port}( |$)|--dports ([0-9:,]*,)?${port}(,| |$)"
+            ;;
+        firewalld)
+            out="$(firewall-cmd --list-all 2>/dev/null || true)"
+            printf '%s\n' "$out" | grep -Eq "(^|[ =\"])${port}/(tcp|udp)|port=\"${port}\""
+            ;;
+        nftables)
+            out="$(nft list ruleset 2>/dev/null || true)"
+            printf '%s\n' "$out" | grep -E 'accept' | grep -Eq "dport (\{[^}]*\b${port}\b|${port}\b)"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 firewall_close() {
     # Same zero-arg guard as firewall_open.
     local backend="${1:-}"
