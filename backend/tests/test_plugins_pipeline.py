@@ -550,6 +550,58 @@ def test_repair_leaves_intact_installs_alone(app, plugin_dirs, monkeypatch):
     assert plugin.status == InstalledPlugin.STATUS_ACTIVE
 
 
+def _write_builtin_with_backend(builtin_dir, body='VALUE = 1\n'):
+    """A builtin with a backend package (no blueprint) on top of _write_builtin."""
+    _write_builtin(builtin_dir)
+    backend = builtin_dir / 'serverkit-demo' / 'backend'
+    backend.mkdir(exist_ok=True)
+    (backend / '__init__.py').write_text('')
+    (backend / 'svc.py').write_text(body)
+    return backend
+
+
+def test_repair_refreshes_a_builtin_whose_backend_is_outdated(app, plugin_dirs):
+    """update.sh carries the copied backend forward unchanged, so a builtin kept
+    running the code of the panel version it was first installed on. The repair
+    pass now refreshes it from builtin-extensions/ (fork: arya-arav/ServerKit)."""
+    source = _write_builtin_with_backend(plugin_dirs['builtin'])
+    plugin = plugin_service.install_builtin_extension('serverkit-demo')
+    installed = plugin_dirs['backend'] / 'serverkit-demo' / 'svc.py'
+    assert installed.read_text() == 'VALUE = 1\n'
+
+    # A newer panel ships a changed builtin; the installed copy is the old one.
+    (source / 'svc.py').write_text('VALUE = 2\n')
+    plugin_service.repair_missing_plugins()
+
+    assert installed.read_text() == 'VALUE = 2\n'
+    db.session.refresh(plugin)
+    assert plugin.status == InstalledPlugin.STATUS_ACTIVE
+
+
+def test_repair_leaves_a_current_builtin_backend_alone(app, plugin_dirs, monkeypatch):
+    _write_builtin_with_backend(plugin_dirs['builtin'])
+    plugin_service.install_builtin_extension('serverkit-demo')
+    monkeypatch.setattr(
+        plugin_service, 'install_from_path',
+        lambda *a, **kw: pytest.fail('an up-to-date builtin must not be reinstalled'))
+
+    plugin_service.repair_missing_plugins()
+
+
+def test_repair_does_not_refresh_a_non_builtin_install_of_the_same_slug(app, plugin_dirs, monkeypatch):
+    """Only installs that came from builtin-extensions/ are refreshed from it."""
+    source = _write_builtin_with_backend(plugin_dirs['builtin'])
+    plugin = plugin_service.install_builtin_extension('serverkit-demo')
+    plugin.source_type = 'registry'
+    db.session.commit()
+    (source / 'svc.py').write_text('VALUE = 2\n')
+    monkeypatch.setattr(
+        plugin_service, 'install_from_path',
+        lambda *a, **kw: pytest.fail('a registry install must not be swapped for the builtin'))
+
+    plugin_service.repair_missing_plugins()
+
+
 # --------------------------------------------------------------------------- #
 # Hot-load on a live app (#144): install must work after the first request
 # --------------------------------------------------------------------------- #

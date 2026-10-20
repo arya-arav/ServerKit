@@ -1199,6 +1199,32 @@ def _regenerate_frontend_manifest():
     logger.info(f'Frontend plugin manifest regenerated with {len(entries)} plugin(s)')
 
 
+def _builtin_backend_is_stale(slug, builtin_path):
+    """True when the copy-installed backend of builtin *slug* differs from the
+    ``builtin-extensions/<slug>/backend`` the running panel ships.
+
+    The copy is made once at install time and update.sh carries it forward
+    as-is, so without this a builtin kept running the code from whichever
+    panel version it was first installed on. Only the shipped source files
+    are compared; files the copy has on top (caches) are ignored.
+    """
+    import filecmp
+    source = os.path.join(builtin_path, 'backend')
+    installed = os.path.join(BACKEND_PLUGINS_DIR, slug)
+    if not os.path.isdir(source) or not os.path.isdir(installed):
+        return False
+    for dirpath, dirnames, filenames in os.walk(source):
+        dirnames[:] = [d for d in dirnames if d != '__pycache__']
+        for name in filenames:
+            if name.endswith('.pyc'):
+                continue
+            src_file = os.path.join(dirpath, name)
+            dst_file = os.path.join(installed, os.path.relpath(src_file, source))
+            if not os.path.isfile(dst_file) or not filecmp.cmp(src_file, dst_file, shallow=False):
+                return True
+    return False
+
+
 def repair_missing_plugins():
     """Self-heal installed plugins whose files are gone (#48).
 
@@ -1214,6 +1240,10 @@ def repair_missing_plugins():
                             → re-download from ``source_url`` (no checksum —
                               the original install verified it; best effort)
       - anything else       → mark `error` with a re-upload hint
+
+    A builtin whose files are all present but whose copied backend differs
+    from the ``builtin-extensions/`` this version ships is refreshed the same
+    way (update.sh carries the old copy forward unchanged).
 
     Reinstalls run with ``hot_load=False`` — load_all_plugins registers the
     blueprints right after this pass. Never raises; each repair is
@@ -1245,13 +1275,23 @@ def repair_missing_plugins():
             os.path.join(BACKEND_PLUGINS_DIR, slug))
         frontend_missing = bool(plugin.has_frontend) and not os.path.isdir(
             os.path.join(FRONTEND_PLUGINS_DIR, slug))
-        if not backend_missing and not frontend_missing:
+        # A builtin installed from builtin-extensions/ whose copied backend no
+        # longer matches what this panel version ships: refresh it, or it keeps
+        # running the code from the version it was first installed on.
+        stale = (not backend_missing and bool(plugin.has_backend)
+                 and plugin.source_type == 'builtin' and slug in builtin_by_slug
+                 and _builtin_backend_is_stale(slug, builtin_by_slug[slug]['path']))
+        if not backend_missing and not frontend_missing and not stale:
             continue
 
-        halves = ' + '.join(h for h, m in (('backend', backend_missing),
-                                           ('frontend', frontend_missing)) if m)
-        logger.warning(
-            f'Plugin {slug}: {halves} files missing (panel update?) — attempting repair')
+        if stale and not frontend_missing:
+            logger.warning(f'Plugin {slug}: installed backend is older than the '
+                           'builtin this panel ships — refreshing')
+        else:
+            halves = ' + '.join(h for h, m in (('backend', backend_missing),
+                                               ('frontend', frontend_missing)) if m)
+            logger.warning(
+                f'Plugin {slug}: {halves} files missing (panel update?) — attempting repair')
 
         try:
             if slug in builtin_by_slug:

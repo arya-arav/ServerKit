@@ -33,6 +33,7 @@
   - Upstream ran `ufw allow 80/tcp` and `443/tcp` on every update. On this server that re-added allow-from-anywhere rules next to the Cloudflare-only ones.
   - It now opens a web port only when the firewall has no rule for it at all. Restricted rules count as rules, for ufw, iptables, firewalld and nftables.
   - Tests: T25b in `scripts/test/test_install.sh`, and the `ensure_firewall` cases at the end of `scripts/test/test_update.sh`.
+- **Built-in extensions are refreshed on update** (`plugin_service._builtin_backend_is_stale` / `repair_missing_plugins`). An installed builtin's backend is a copy under `backend/app/plugins/<slug>`, which update.sh carries forward unchanged. A builtin therefore kept running the code of the panel version it was first installed on, and every fix needed a manual uninstall and reinstall. The boot repair pass now also reinstalls a builtin-sourced extension, in place with its record and data kept, when its copied backend differs from the `builtin-extensions/` this version ships. Tests: the `repair_*builtin*` cases in `backend/tests/test_plugins_pipeline.py`.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.
