@@ -43,7 +43,7 @@ from app.services.upload_service import (
     get_current_version,
 )
 from app import paths
-from app.middleware.rbac import get_current_user, require_admin_user
+from app.middleware.rbac import auth_required, get_current_user, require_admin_user
 from app.error_reporting import unexpected_response
 from app.exceptions import (
     PermissionDeniedError, ValidationError, field_required, not_found, permission_denied,
@@ -632,19 +632,18 @@ def get_app(app_id):
 
 
 @apps_bp.route('/<int:app_id>/details', methods=['GET'])
-@jwt_required()
+@auth_required()
 def get_app_details(app_id):
     """Install details, containers (image, ports, PHP version), domains and
     paths for the service page's App details card. Read-only; secrets in the
     template options come back masked."""
-    user = get_current_user()
-    app = Application.query_active().filter_by(id=app_id).first()
+    from app.services.app_details_service import AppDetailsService
+
+    app = AppDetailsService.find_app(app_id)
     if not app:
         raise not_found('service')
-    if not _can_access_app(user, app):
+    if not _can_access_app(get_current_user(), app):
         raise permission_denied()
-
-    from app.services.app_details_service import AppDetailsService
     return jsonify(AppDetailsService.collect(app)), 200
 
 

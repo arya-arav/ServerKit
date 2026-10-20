@@ -23,6 +23,12 @@ PROBE_TIMEOUT = 5
 
 class AppDetailsService:
 
+    @staticmethod
+    def find_app(app_id):
+        """The live (not soft-deleted) Application, or None."""
+        from app.models.application import Application
+        return Application.query_active().filter_by(id=app_id).first()
+
     @classmethod
     def collect(cls, app):
         return {

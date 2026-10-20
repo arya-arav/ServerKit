@@ -171,6 +171,7 @@ Regenerate (backend/):
 - `GET /apps/{app_id}/container-logs`
 - `GET /apps/{app_id}/containers`
 - `GET /apps/{app_id}/db-snapshots`
+- `GET /apps/{app_id}/details`
 - `GET /apps/{app_id}/env`
 - `GET /apps/{app_id}/env/export`
 - `GET /apps/{app_id}/env/history`
@@ -606,6 +607,7 @@ Regenerate (backend/):
 - `GET /services/{app_id}/container-logs`
 - `GET /services/{app_id}/containers`
 - `GET /services/{app_id}/db-snapshots`
+- `GET /services/{app_id}/details`
 - `GET /services/{app_id}/grants`
 - `GET /services/{app_id}/linked`
 - `GET /services/{app_id}/logs`
