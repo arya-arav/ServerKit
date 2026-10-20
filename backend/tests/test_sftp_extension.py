@@ -40,7 +40,8 @@ def test_sshd_dropin_confines_only_the_sftp_group(svc):
     assert 'ForceCommand internal-sftp -d /site -m 0664' in lines
     assert 'PermitTTY no' in lines
     assert 'AllowTcpForwarding no' in lines
-    assert 'AuthorizedKeysFile /etc/serverkit/sftp-keys/%u' in lines
+    # sshd reads keys as the connecting user; /etc/serverkit is 0750 root.
+    assert 'AuthorizedKeysFile /etc/ssh/serverkit-sftp-keys/%u' in lines
     # Password logins are switched on inside the Match block only.
     match_at = lines.index('Match Group sk-sftp')
     assert lines.index('PasswordAuthentication yes') > match_at
@@ -125,6 +126,23 @@ def test_fstab_remove_only_touches_marked_lines(svc):
     assert svc.fstab_remove(added, '/srv/sftp-jails/web/site') == FSTAB
 
 
+# --- mount detection -------------------------------------------------------------
+
+MOUNTINFO = (
+    '29 1 8:1 / / rw,relatime shared:1 - ext4 /dev/sda1 rw\n'
+    # A bind mount from the same filesystem: os.path.ismount() reports False here.
+    '512 29 8:1 /srv/site /srv/sftp-jails/web/site rw,relatime shared:1 - ext4 /dev/sda1 rw\n'
+    '513 29 8:1 /srv/a\\040b /srv/sftp-jails/x/my\\040site rw - ext4 /dev/sda1 rw\n'
+)
+
+
+def test_mount_points_sees_same_filesystem_bind_mounts(svc):
+    points = svc.mount_points(MOUNTINFO)
+    assert '/srv/sftp-jails/web/site' in points
+    assert '/srv/sftp-jails/x/my site' in points  # octal escapes decoded
+    assert '/srv/sftp-jails/web' not in points
+
+
 # --- public keys ------------------------------------------------------------------
 
 def test_parse_public_keys_accepts_keys_and_skips_blanks(svc):
@@ -173,7 +191,7 @@ def test_create_account_runs_the_expected_steps(app, svc, fake_subprocess, monke
     monkeypatch.setattr(svc, '_user_exists', lambda name: False)
     monkeypatch.setattr(svc, '_owner_and_group', lambda path: ('ubuntu', 'www-data'))
     monkeypatch.setattr(svc, '_update_fstab', lambda transform: None)
-    monkeypatch.setattr(svc.os.path, 'ismount', lambda path: False)
+    monkeypatch.setattr(svc, '_is_mounted', lambda path: False)
     fake_subprocess.script(['useradd'])
     fake_subprocess.script(['chpasswd'])
     fake_subprocess.script(['tee'])
@@ -261,3 +279,28 @@ def test_install_registers_routes_and_gates_mutations(app, client, auth_headers,
         assert resp.status_code == 403, (method, url, resp.status_code)
 
     assert plugin_service.uninstall_plugin(plugin.id) is True
+
+
+def test_app_targets_offer_container_folders_but_apply_the_policy(app, svc, monkeypatch):
+    class _Dom:
+        name, is_primary = 'shop.example.com', True
+
+    class _App:
+        id, name, root_path, live_domains = 7, 'shop', '/srv/shop/stack', [_Dom()]
+
+    class _Query:
+        @staticmethod
+        def all():
+            return [_App()]
+
+    from app.models.application import Application
+    monkeypatch.setattr(Application, 'query_active', classmethod(lambda cls: _Query()))
+    monkeypatch.setattr(svc.os.path, 'isdir', lambda p: True)
+    monkeypatch.setattr(svc.os.path, 'realpath', lambda p: p)
+    monkeypatch.setattr(svc, '_home_dirs', lambda: ['/home/ubuntu'])
+    monkeypatch.setattr(svc, '_container_bind_folders',
+                        lambda root: ['/srv/shop/htdocs', '/etc/nginx', '/home/ubuntu', '/srv/shop/stack'])
+
+    paths = [t['path'] for t in svc.app_targets()]
+    # Mounted site folder first, app folder last; system paths and homes never offered.
+    assert paths == ['/srv/shop/htdocs', '/srv/shop/stack']

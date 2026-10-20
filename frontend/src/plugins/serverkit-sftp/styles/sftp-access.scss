@@ -93,5 +93,10 @@
         display: inline-flex;
         justify-content: flex-end;
         gap: $space-1;
+
+        &--start {
+            justify-content: flex-start;
+            gap: $space-2;
+        }
     }
 }

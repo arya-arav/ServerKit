@@ -39,7 +39,12 @@ SLUG = 'serverkit-sftp'
 GROUP = 'sk-sftp'
 JAIL_BASE = '/srv/sftp-jails'
 MOUNT_NAME = 'site'
-KEYS_DIR = '/etc/serverkit/sftp-keys'
+# sshd reads AuthorizedKeysFile *as the connecting user*, so every directory on
+# the path must be traversable by them. /etc/serverkit is 0750 root, which is
+# why the keys live under /etc/ssh (0755) instead.
+KEYS_DIR = '/etc/ssh/serverkit-sftp-keys'
+LEGACY_KEYS_DIR = '/etc/serverkit/sftp-keys'
+MOUNTINFO = '/proc/self/mountinfo'
 SSHD_DROPIN = '/etc/ssh/sshd_config.d/50-serverkit-sftp.conf'
 FSTAB = '/etc/fstab'
 FSTAB_MARKER = 'x-serverkit-sftp'
@@ -165,6 +170,22 @@ def parse_public_keys(text: str) -> Tuple[List[str], Optional[str]]:
     return keys, None
 
 
+def mount_points(mountinfo: str) -> set:
+    """Mount points listed in a /proc/<pid>/mountinfo text.
+
+    ``os.path.ismount`` cannot be used: it compares the device of a path with
+    its parent's, and a bind mount from the same filesystem has the same device,
+    so every jail mount would read as "not mounted". Field 5 is the mount point,
+    with spaces and other specials octal-escaped (``\\040``).
+    """
+    points = set()
+    for line in mountinfo.splitlines():
+        fields = line.split()
+        if len(fields) > 4:
+            points.add(re.sub(r'\\([0-7]{3})', lambda m: chr(int(m.group(1), 8)), fields[4]))
+    return points
+
+
 def render_authorized_keys(keys: List[str]) -> str:
     return ''.join(f'restrict {k}\n' for k in keys)
 
@@ -255,6 +276,14 @@ def _home_dirs() -> List[str]:
                    if u.pw_dir and not _within(u.pw_dir, JAIL_BASE) and u.pw_dir != f'/{MOUNT_NAME}'})
 
 
+def _is_mounted(path: str) -> bool:
+    try:
+        with open(MOUNTINFO, encoding='utf-8') as fh:
+            return path in mount_points(fh.read())
+    except OSError:
+        return False
+
+
 def _sshd_unit() -> str:
     return 'ssh' if unit_is_active('ssh') else 'sshd'
 
@@ -277,23 +306,60 @@ def _dropin_current() -> bool:
         return False
 
 
+def _container_bind_folders(project_dir: str) -> List[str]:
+    """Host folders bind-mounted into the compose project's containers.
+
+    An app's ``root_path`` is often only its compose/config folder, while the
+    site's files sit in a folder its containers mount (``/srv/x/htdocs``) —
+    the folder an SFTP user actually wants.
+    """
+    listed = run_checked(['docker', 'ps', '-aq', '--filter',
+                          f'label=com.docker.compose.project.working_dir={project_dir}'],
+                         privileged=True, timeout=20)
+    ids = (listed.get('output') or '').split()
+    if not listed.get('success') or not ids:
+        return []
+    inspected = run_checked(['docker', 'inspect', '--format',
+                             '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}\n{{end}}{{end}}', *ids],
+                            privileged=True, timeout=20)
+    folders = []
+    for line in (inspected.get('output') or '').splitlines():
+        path = line.strip()
+        if path and path not in folders and os.path.isdir(path):
+            folders.append(os.path.realpath(path))
+    return folders
+
+
 def app_targets() -> List[dict]:
-    """ServerKit applications with an existing folder, for the folder picker."""
+    """Folders of ServerKit applications, for the folder picker.
+
+    One entry per app folder plus one per folder its containers mount, each
+    only if it passes the same policy as a typed-in path.
+    """
     from app.models.application import Application
 
+    homes = _home_dirs()
     targets = []
     for application in Application.query_active().all():
         root = application.root_path
         if not root or not os.path.isdir(root):
             continue
+        root = os.path.realpath(root)
         domains = sorted(application.live_domains, key=lambda d: not d.is_primary)
-        targets.append({
-            'app_id': application.id,
-            'name': application.name,
-            'path': os.path.realpath(root),
-            'domain': domains[0].name if domains else None,
-        })
-    targets.sort(key=lambda t: (t['name'] or '').lower())
+        folders = [f for f in _container_bind_folders(root) if f != root] + [root]
+        for folder in dict.fromkeys(folders):
+            trusted = [root] if _within(folder, root) else []
+            if check_target(folder, app_paths=trusted, home_dirs=homes):
+                continue
+            targets.append({
+                'key': f'{application.id}:{folder}',
+                'app_id': application.id,
+                'name': application.name,
+                'path': folder,
+                'is_app_root': folder == root,
+                'domain': domains[0].name if domains else None,
+            })
+    targets.sort(key=lambda t: ((t['name'] or '').lower(), t['is_app_root'], t['path']))
     return targets
 
 
@@ -337,7 +403,7 @@ def get_status() -> dict:
     acl = is_command_available('setfacl')
     group = _group_exists()
     dropin = _dropin_current()
-    jails = os.path.isdir(JAIL_BASE)
+    jails = os.path.isdir(JAIL_BASE) and os.path.isdir(KEYS_DIR)
     settings = _sshd_settings() if (dropin and group) else {}
     return {
         'ready': acl and group and dropin and jails,
@@ -381,6 +447,13 @@ def setup() -> dict:
     for folder in (JAIL_BASE, KEYS_DIR):
         _require(run_privileged(['install', '-d', '-m', '755', '-o', 'root', '-g', 'root', folder]),
                  f'Creating {folder}')
+    # 1.0.0 kept keys under /etc/serverkit, which sshd could not read (see KEYS_DIR).
+    if os.path.isdir(LEGACY_KEYS_DIR):
+        for name in os.listdir(LEGACY_KEYS_DIR):
+            if not validate_username(name):
+                run_privileged(['install', '-m', '644', '-o', 'root', '-g', 'root',
+                                f'{LEGACY_KEYS_DIR}/{name}', f'{KEYS_DIR}/{name}'])
+        run_privileged(['rm', '-rf', LEGACY_KEYS_DIR])
 
     _require(write_privileged_file(SSHD_DROPIN, render_sshd_dropin(), mode='644', owner='root:root'),
              'Writing the sshd rule')
@@ -453,13 +526,13 @@ def _mount(username: str, target: str) -> None:
         _require(run_privileged(['install', '-d', '-m', '755', '-o', 'root', '-g', 'root', folder]),
                  f'Creating {folder}')
     _update_fstab(lambda text: fstab_add(text, target, point))
-    if not os.path.ismount(point):
+    if not _is_mounted(point):
         _require(run_privileged(['mount', '--bind', target, point]), 'Mounting the folder')
 
 
 def _unmount(username: str) -> None:
     point = mount_point(username)
-    if os.path.ismount(point):
+    if _is_mounted(point):
         run_privileged(['umount', point])
     _update_fstab(lambda text: fstab_remove(text, point))
     run_privileged(['rmdir', point])
@@ -479,7 +552,7 @@ def _public(account: dict, last_logins: Dict[str, str]) -> dict:
         'keys': account.get('keys', []),
         'created_at': account.get('created_at'),
         'created_by': account.get('created_by'),
-        'mounted': os.path.ismount(mount_point(username)),
+        'mounted': _is_mounted(mount_point(username)),
         'exists': _user_exists(username),
         'last_login': last_logins.get(username),
     }

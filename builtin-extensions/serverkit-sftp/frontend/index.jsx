@@ -117,9 +117,16 @@ function ConnectionCard({ status, onSaveHost }) {
                         <p className="sftp-access__muted">
                             {t('sftpAccess.hostHint', 'A Cloudflare-proxied domain will not work for SFTP; use the server IP or a grey-cloud record.')}
                         </p>
-                        <Button size="sm" onClick={async () => { await onSaveHost(host); setEditing(false); }}>
-                            {t('common.actions.save', 'Save')}
-                        </Button>
+                        <div className="sftp-access__actions sftp-access__actions--start">
+                            <Button size="sm" onClick={async () => { await onSaveHost(host); setEditing(false); }}>
+                                {t('common.actions.save', 'Save')}
+                            </Button>
+                            {status?.host && (
+                                <Button size="sm" variant="outline" onClick={() => { setHost(status.host); setEditing(false); }}>
+                                    {t('common.actions.cancel', 'Cancel')}
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 )}
                 {status?.host && !editing && (
@@ -141,7 +148,7 @@ function CreateModal({ open, onClose, targets, onCreated }) {
     useEffect(() => { if (open) setForm(EMPTY_FORM); }, [open]);
 
     const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
-    const chosen = targets.find((tg) => String(tg.app_id) === form.target);
+    const chosen = targets.find((tg) => tg.key === form.target);
     const path = form.target === CUSTOM ? form.customPath.trim() : chosen?.path || '';
 
     const submit = async () => {
@@ -193,8 +200,13 @@ function CreateModal({ open, onClose, targets, onCreated }) {
                     <SelectTrigger><SelectValue placeholder={t('sftpAccess.chooseFolder', 'Choose an app or a folder')} /></SelectTrigger>
                     <SelectContent>
                         {targets.map((tg) => (
-                            <SelectItem key={tg.app_id} value={String(tg.app_id)}>
-                                {tg.name}{tg.domain ? ` (${tg.domain})` : ''}
+                            <SelectItem key={tg.key} value={tg.key}>
+                                {t('sftpAccess.targetLabel', '{{app}} · {{folder}}', {
+                                    app: tg.name,
+                                    folder: tg.is_app_root
+                                        ? t('sftpAccess.appFolder', 'app folder')
+                                        : tg.path.split('/').filter(Boolean).slice(-2).join('/'),
+                                })}
                             </SelectItem>
                         ))}
                         <SelectItem value={CUSTOM}>{t('sftpAccess.customFolder', 'Another folder…')}</SelectItem>
@@ -223,7 +235,7 @@ function CreateModal({ open, onClose, targets, onCreated }) {
             <div className="sftp-access__field">
                 <Label htmlFor="sftp-keys">{t('sftpAccess.publicKeys', 'Public keys (optional, one per line)')}</Label>
                 <Textarea id="sftp-keys" rows={3} value={form.publicKeys} className="sftp-access__mono"
-                    onChange={(e) => set('publicKeys')(e.target.value)} placeholder="ssh-ed25519 AAAA… you@laptop" />
+                    onChange={(e) => set('publicKeys')(e.target.value)} placeholder={t('sftpAccess.keyPlaceholder', 'ssh-ed25519 AAAA… you@laptop')} />
             </div>
         </Modal>
     );
@@ -288,7 +300,7 @@ function KeysModal({ account, onClose, onSaved }) {
             )}
         >
             <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} className="sftp-access__mono"
-                placeholder="ssh-ed25519 AAAA… you@laptop" />
+                placeholder={t('sftpAccess.keyPlaceholder', 'ssh-ed25519 AAAA… you@laptop')} />
         </Modal>
     );
 }

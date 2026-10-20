@@ -8441,6 +8441,7 @@
         "welcome": "Welcome to {{panel}}"
     },
     "sftpAccess": {
+        "appFolder": "app folder",
         "changeAddress": "Change address",
         "checkAcl": "ACL tools installed (scoped write access)",
         "checkGroup": "sk-sftp group created",
@@ -8471,6 +8472,7 @@
         "hostFailed": "Could not save the address",
         "hostHint": "A Cloudflare-proxied domain will not work for SFTP; use the server IP or a grey-cloud record.",
         "keyCount": "{{count}} key",
+        "keyPlaceholder": "ssh-ed25519 AAAA… you@laptop",
         "keysFailed": "Could not save the keys",
         "keysSaved": "Keys saved",
         "keysTitle": "Public keys for {{name}}",
@@ -8501,6 +8503,7 @@
         "statusActive": "Active",
         "statusBroken": "Needs attention",
         "statusDisabled": "Disabled",
+        "targetLabel": "{{app}} · {{folder}}",
         "toggleFailed": "Could not update the account",
         "username": "Username"
     },
