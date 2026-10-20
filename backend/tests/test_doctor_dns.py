@@ -304,3 +304,40 @@ def test_doctor_schedule_is_seeded(app):
     assert row is not None
     assert row.kind == DOCTOR_JOB_KIND
     assert row.interval_seconds == 86400
+
+
+# --------------------------------------------------------------------------- #
+# Cloudflare-proxied domains (fork: arya-arav/ServerKit)
+# --------------------------------------------------------------------------- #
+
+def test_cloudflare_proxied_domain_is_ok_not_wrong_server(app, site, monkeypatch):
+    add_domain(site, 'proxied.example.com')
+    set_server_ip(monkeypatch, '203.0.113.7')
+    monkeypatch.setattr(doctor_service, '_resolve_host_ips', fake_resolver({
+        'proxied.example.com': ['104.21.55.11', '172.67.143.233',
+                                '2606:4700:3030::6815:370b'],
+    }))
+    c = checks_by_key(DoctorService._dns_checks())['dns.resolve.proxied.example.com']
+    assert c['status'] == 'ok'
+    assert 'Cloudflare' in c['detail']
+
+
+def test_mixed_cloudflare_and_other_ips_still_warns(app, site, monkeypatch):
+    add_domain(site, 'mixed.example.com')
+    set_server_ip(monkeypatch, '203.0.113.7')
+    monkeypatch.setattr(doctor_service, '_resolve_host_ips', fake_resolver({
+        'mixed.example.com': ['104.21.55.11', '198.51.100.9'],
+    }))
+    c = checks_by_key(DoctorService._dns_checks())['dns.resolve.mixed.example.com']
+    assert c['status'] == 'warn'
+    assert 'not this server' in c['detail']
+
+
+def test_unrelated_ip_still_warns(app, site, monkeypatch):
+    add_domain(site, 'elsewhere.example.com')
+    set_server_ip(monkeypatch, '203.0.113.7')
+    monkeypatch.setattr(doctor_service, '_resolve_host_ips', fake_resolver({
+        'elsewhere.example.com': ['198.51.100.9'],
+    }))
+    c = checks_by_key(DoctorService._dns_checks())['dns.resolve.elsewhere.example.com']
+    assert c['status'] == 'warn'

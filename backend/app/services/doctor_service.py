@@ -35,6 +35,17 @@ CERTBOT_RENEW_TIMERS = ('certbot.timer', 'snap.certbot.renew.timer')
 DISK_WARN_FREE_PCT = 10.0
 DISK_FAIL_FREE_PCT = 5.0
 
+# Cloudflare edge ranges (https://www.cloudflare.com/ips, 2026-10). A proxied
+# ("orange cloud") record resolves only to these, never to the origin server.
+CLOUDFLARE_NETWORKS = tuple(ipaddress.ip_network(n) for n in (
+    '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22',
+    '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20',
+    '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13',
+    '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+    '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32',
+    '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32',
+))
+
 # Cap for the synchronous probes that shell out (systemctl is-active).
 PROBE_TIMEOUT_SECONDS = 10
 
@@ -154,6 +165,17 @@ def _is_public_site_host(host):
     except ValueError:
         pass
     return not any(h.endswith(suffix) for suffix in _DNS_SKIP_SUFFIXES)
+
+
+def _all_cloudflare(ips):
+    """True when every address is a Cloudflare edge IP (a proxied record)."""
+    try:
+        addrs = [ipaddress.ip_address(ip) for ip in ips]
+    except ValueError:
+        return False
+    return bool(addrs) and all(
+        any(addr in net for net in CLOUDFLARE_NETWORKS if net.version == addr.version)
+        for addr in addrs)
 
 
 def _check(key, title, status, detail, repairable=False, repair_ref=None):
@@ -518,6 +540,13 @@ class DoctorService:
                     f"the AAAA record, or point it at this server's IPv6 "
                     f'address.')
             return _check(key, title, 'ok', f'{host} resolves to {server_ip}.')
+        if _all_cloudflare(ips):
+            # Orange-cloud DNS answers with Cloudflare's edge, never the origin,
+            # so "not this server" would be a false alarm on every proxied site.
+            return _check(key, title, 'ok',
+                          f'{host} is proxied through Cloudflare, so DNS shows '
+                          f"Cloudflare's addresses, not the origin; the origin "
+                          f'is set in Cloudflare.')
         resolved = ', '.join(ips)
         if server_ip:
             return _check(key, title, 'warn',
