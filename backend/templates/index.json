@@ -2,7 +2,7 @@
   "name": "serverkit-official",
   "schema_version": "1.0",
   "generated_at": "2026-07-25T20:06:08.123735",
-  "count": 121,
+  "count": 122,
   "templates": [
     {
       "id": "actualbudget",
@@ -1089,6 +1089,18 @@
       "name": "PHP Application",
       "version": "8.3",
       "description": "Custom PHP application with Apache. Supports PHP 8.0-8.3. Perfect for Laravel, WordPress themes, or any PHP project.",
+      "icon": "https://serverkit.ai/imgs/template-icons/php-app.svg",
+      "categories": [
+        "development",
+        "web",
+        "custom"
+      ]
+    },
+    {
+      "id": "php-nginx-fpm",
+      "name": "PHP (Nginx + PHP-FPM)",
+      "version": "8.3",
+      "description": "PHP application served by Nginx with PHP-FPM. Any PHP version from 7.0 to 8.4, with mysqli, pdo_mysql, opcache and bcmath built in.",
       "icon": "https://serverkit.ai/imgs/template-icons/php-app.svg",
       "categories": [
         "development",
