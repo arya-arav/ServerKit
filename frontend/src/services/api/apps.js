@@ -279,6 +279,12 @@ export async function clearEnvVars(appId) {
     });
 }
 
+// Install details, containers (image, ports, PHP version), domains and paths
+// for the service page's App details card (fork: arya-arav/ServerKit).
+export async function getAppDetails(appId) {
+    return this.request(`/apps/${appId}/details`);
+}
+
 // Compose service names for an app (empty list for non-compose apps).
 // Used to target an env var at a single compose service.
 export async function getComposeServices(appId) {

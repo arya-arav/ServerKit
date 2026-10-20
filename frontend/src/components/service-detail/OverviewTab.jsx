@@ -14,6 +14,7 @@ import AttachmentsCard from './AttachmentsCard';
 import PoolerCard from './PoolerCard';
 import SlotsCard from './SlotsCard';
 import HintsCard from './HintsCard';
+import AppDetailsCard from './AppDetailsCard';
 import { KpiBand, MetricCard, Pill, Gauge, EnvTag, statusKind } from '@/components/ds';
 import { usePolling } from '@/hooks/usePolling';
 import { useTranslation } from 'react-i18next';
@@ -221,6 +222,9 @@ const OverviewTab = ({ app, deployConfig }) => {
                         )}
                     </InfoList>
                 </div>
+
+                {/* App details: template options, containers, folder, domains */}
+                <AppDetailsCard app={app} />
 
                 {/* Resource Usage Card */}
                 <div className="overview-tab__card">

@@ -444,6 +444,21 @@
             "totalRequests": "Total requests",
             "webhookSubscriptions": "Webhook subscriptions"
         },
+        "appDetails": {
+            "composeFile": "Compose file",
+            "container": "Container {{name}}",
+            "domain": "Domain",
+            "folder": "Folder on server",
+            "httpsUntil": "HTTPS until {{date}}",
+            "installed": "installed {{date}}",
+            "managedBy": "Managed by",
+            "noHttps": "no HTTPS",
+            "php": "PHP {{version}}",
+            "primaryDomain": "Primary domain",
+            "template": "Template",
+            "title": "App details",
+            "unknown": "unknown"
+        },
         "appMap": {
             "appMap": "App map",
             "hideLegend": "Hide legend",

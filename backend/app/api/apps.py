@@ -631,6 +631,23 @@ def get_app(app_id):
     return jsonify({'app': _attach_deploy_config(app.to_dict(include_linked=True))}), 200
 
 
+@apps_bp.route('/<int:app_id>/details', methods=['GET'])
+@jwt_required()
+def get_app_details(app_id):
+    """Install details, containers (image, ports, PHP version), domains and
+    paths for the service page's App details card. Read-only; secrets in the
+    template options come back masked."""
+    user = get_current_user()
+    app = Application.query_active().filter_by(id=app_id).first()
+    if not app:
+        raise not_found('service')
+    if not _can_access_app(user, app):
+        raise permission_denied()
+
+    from app.services.app_details_service import AppDetailsService
+    return jsonify(AppDetailsService.collect(app)), 200
+
+
 @apps_bp.route('/<int:app_id>/compose-services', methods=['GET'])
 @jwt_required()
 def get_compose_services(app_id):
