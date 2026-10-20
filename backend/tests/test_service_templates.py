@@ -85,6 +85,19 @@ def test_repo_index_covers_all_templates():
         assert t.get("icon"), t
 
 
+@pytest.mark.parametrize("flag, expected", [("featured: true\n", True), ("", False)])
+def test_featured_flag_reaches_the_catalog(tmp_path, flag, expected):
+    """The Templates page features any template whose YAML says `featured: true`."""
+    path = tmp_path / "demo.yaml"
+    path.write_text(
+        "id: demo\nname: Demo\nversion: '1'\ndescription: d\n" + flag
+        + "compose:\n  services:\n    app:\n      image: nginx:1\n",
+        encoding="utf-8",
+    )
+    entry = TemplateService._parse_local_entry(str(path), "demo")
+    assert entry["featured"] is expected
+
+
 def test_catalog_contains_roadmap_services():
     ids = {t["id"] for t in TemplateService.build_repo_index()["templates"]}
     missing = [e for e in ROADMAP_IDS if e not in ids]

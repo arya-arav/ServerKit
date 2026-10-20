@@ -277,6 +277,7 @@ class TemplateCatalogMixin:
             'description': template.get('description'),
             'icon': template.get('icon'),
             'categories': template.get('categories', []),
+            'featured': bool(template.get('featured')),
             'kind': kind,
             'source': 'local',
             'filepath': filepath
@@ -331,6 +332,8 @@ class TemplateCatalogMixin:
                 'icon': t.get('icon'),
                 'categories': t.get('categories', []),
             }
+            if t.get('featured'):
+                entry['featured'] = True
             # Carried in the index so a panel that syncs this repo can list the
             # engine catalog without fetching all 100+ template files first.
             if isinstance(t.get('engine'), dict):

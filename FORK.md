@@ -91,9 +91,12 @@ git push origin main
 sudo serverkit update
 ```
 
+Upstream lands work on `dev` and releases it to `main` later. `git log main..upstream/dev` shows what is waiting there, and it can be merged early the same way (done on 2026-10-21 for the Gitea lockdown and featured templates).
+
 ## Server-side changes not in this repo
 
 These live on the server only. Re-check them after an update.
 
-- `/etc/nginx/conf.d/cloudflare-realip.conf` (real visitor IPs behind Cloudflare).
+- Real visitor IPs behind Cloudflare are now written by the Cloudflare-only switch (`/etc/nginx/conf.d/serverkit-cloudflare-realip.conf`); the old hand-made `cloudflare-realip.conf` was removed.
+- `/etc/cloud/cloud.cfg.d/99-keep-hostname.cfg` keeps the hostname `serverkit` across reboots on Oracle Cloud.
 - Cloudflare allow lists for Fail2ban (`/etc/fail2ban/jail.d/zz-cloudflare-ignore.local`) and CrowdSec (`/etc/crowdsec/parsers/s02-enrich/cloudflare-whitelist.yaml`).

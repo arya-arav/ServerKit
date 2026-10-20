@@ -175,7 +175,8 @@ const KIND_OPTIONS = [
     { value: 'repo', labelKey: 'app.templates.gitRepo', label: 'Git repo' },
 ];
 
-const isFeatured = (templateId) => FEATURED_TEMPLATES.includes(templateId);
+// A template can also feature itself with `featured: true` in its registry entry.
+const isFeatured = (template) => Boolean(template.featured) || FEATURED_TEMPLATES.includes(template.id);
 const kindLabel = (template) => ((template.kind || 'compose') === 'repo' ? 'Git repo' : 'One-click');
 
 // The catalog stays a card grid — a template is something you read, not a row
@@ -188,11 +189,11 @@ const templateColumns = [
         key: 'featured',
         headerKey: 'app.templates.featured', header: 'Featured',
         type: 'bool',
-        value: (t) => isFeatured(t.id),
+        value: (t) => isFeatured(t),
         // 1/0 rather than the boolean: applyTableSorts compares booleans as the
         // strings "true"/"false", which happens to work and would stop working
         // the moment anyone renamed the labels.
-        sortValue: (t) => (isFeatured(t.id) ? 1 : 0),
+        sortValue: (t) => (isFeatured(t) ? 1 : 0),
     },
     { key: 'kind', headerKey: 'common.labels.type', header: 'Type', type: 'enum', enumOrder: ['One-click', 'Git repo'], value: kindLabel, sortValue: kindLabel },
     { key: 'version', headerKey: 'common.labels.version', header: 'Version', type: 'text', value: (t) => t.version || '', sortValue: (t) => t.version || '' },
@@ -601,7 +602,7 @@ const Templates = () => {
                                 title={template.name}
                                 sub={`v${template.version}`}
                                 tag={isRepo ? t('app.templates.gitRepo', 'Git repo') : t('app.templates.oneClick', 'One-click')}
-                                featured={isFeatured(template.id)}
+                                featured={isFeatured(template)}
                                 description={template.description}
                                 facts={(template.categories || []).slice(0, 2).join(' · ')}
                                 onClick={deployManaged ? undefined : () => handleDeploy(template)}
