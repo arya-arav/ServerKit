@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Globe, Plus, ShieldCheck, RefreshCw, Trash2, ExternalLink,
-    AlertTriangle, Lock, Search, ChevronRight,
+    AlertTriangle, Lock, Search, ChevronRight, ArrowRightLeft,
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/useToast.js';
@@ -166,6 +166,9 @@ const Domains = () => {
     const [sslEmail, setSslEmail] = useState('');
     const [acmeContact, setAcmeContact] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
+    // Domain being moved to another service, and the chosen target.
+    const [moveDomain, setMoveDomain] = useState(null);
+    const [moveTargetId, setMoveTargetId] = useState('');
 
     useEffect(() => { loadData(); }, []);
 
@@ -252,6 +255,23 @@ const Domains = () => {
             setDomainName('');
             setSelectedAppId('');
             setIsPrimary(false);
+            loadData();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveDomain() {
+        if (!moveDomain || !moveTargetId) return;
+        try {
+            setActionLoading(true);
+            const res = await api.moveDomain(moveDomain.id, parseInt(moveTargetId, 10));
+            if (res?.message) toast.success(res.message);
+            if (res?.ssl_notice) toast.info(res.ssl_notice, { duration: 8000 });
+            setMoveDomain(null);
+            setMoveTargetId('');
             loadData();
         } catch (err) {
             setError(err.message);
@@ -804,6 +824,9 @@ const Domains = () => {
                                 <Button variant="outline" size="sm" onClick={() => handleVerifyDomain(drawerDomain)}>
                                     <Search size={14} /> {t('app.domains.verifyDns', 'Verify DNS')}
                                 </Button>
+                                <Button variant="outline" size="sm" onClick={() => { setMoveDomain(drawerDomain); setMoveTargetId(''); setDrawerDomain(null); }}>
+                                    <ArrowRightLeft size={14} /> {t('app.domains.moveToService', 'Move to another service')}
+                                </Button>
                                 {drawerDomain.ssl_enabled ? (
                                     <>
                                         <Button variant="outline" size="sm" disabled={actionLoading} onClick={() => handleRenewSsl(drawerDomain)}>
@@ -938,6 +961,39 @@ const Domains = () => {
                         <Button type="submit" disabled={actionLoading || !domainName || !selectedAppId}>{actionLoading ? t('app.domains.adding', 'Adding…') : t('app.domains.addDomain', 'Add domain')}</Button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* ── Move Domain Modal ──────────────────────────── */}
+            <Modal
+                open={Boolean(moveDomain)}
+                onClose={() => setMoveDomain(null)}
+                title={t('app.domains.moveDomainTitle', 'Move {{name}}', { name: moveDomain?.name || '' })}
+                onSubmit={handleMoveDomain}
+                footer={(
+                    <>
+                        <Button type="button" variant="outline" onClick={() => setMoveDomain(null)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                        <Button type="submit" disabled={actionLoading || !moveTargetId}>
+                            {actionLoading ? t('app.domains.moving', 'Moving…') : t('app.domains.move', 'Move')}
+                        </Button>
+                    </>
+                )}
+            >
+                {moveDomain && (
+                    <>
+                        <p className="hint">
+                            {t('app.domains.moveHint', 'Now on {{service}}. The domain is published on the new service right away and removed from this one. If it had HTTPS, run Enable SSL on the new service afterwards.', { service: appName(moveDomain.application_id) })}
+                        </p>
+                        <Label htmlFor={`${fieldId}-move`}>{t('app.domains.moveTo', 'Move to')}</Label>
+                        <Select value={moveTargetId} onValueChange={setMoveTargetId}>
+                            <SelectTrigger id={`${fieldId}-move`}><SelectValue placeholder={t('app.domains.selectAnApplication', 'Select a service')} /></SelectTrigger>
+                            <SelectContent>
+                                {apps.filter((a) => a.id !== moveDomain.application_id).map((a) => (
+                                    <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </>
+                )}
             </Modal>
 
             {/* ── Enable SSL Modal ───────────────────────────── */}

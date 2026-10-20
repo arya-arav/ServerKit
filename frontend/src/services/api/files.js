@@ -387,6 +387,14 @@ export async function deleteDomain(id) {
     });
 }
 
+// Move a domain to another service in one step (was: delete + re-add).
+export async function moveDomain(id, applicationId) {
+    return this.request(`/domains/${id}/move`, {
+        method: 'POST',
+        body: { application_id: applicationId },
+    });
+}
+
 export async function enableSsl(domainId, email) {
     return this.request(`/domains/${domainId}/ssl/enable`, {
         method: 'POST',

@@ -943,6 +943,7 @@ Regenerate (backend/):
 - `POST /domains/debug/test-routing/{app_id}`
 - `POST /domains/give-subdomain`
 - `POST /domains/nginx/regenerate/{app_id}`
+- `POST /domains/{domain_id}/move`
 - `POST /domains/{domain_id}/ssl/disable`
 - `POST /domains/{domain_id}/ssl/enable`
 - `POST /domains/{domain_id}/ssl/renew`

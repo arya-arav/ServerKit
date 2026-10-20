@@ -5,12 +5,12 @@ import re
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, developer_required, get_current_user
 from app.models import Domain, Application, User
 from app.services.nginx_service import NginxService
 from app.services.ssl_service import SSLService, get_acme_contact, remember_acme_contact
 from app.services.resource_grant_service import ResourceGrantService
-from app.exceptions import already_exists, not_found, permission_denied
+from app.exceptions import ValidationError, already_exists, not_found, permission_denied
 from app.api._request import json_object
 
 domains_bp = Blueprint('domains', __name__)
@@ -367,25 +367,97 @@ def delete_domain(domain_id):
     # separate, admin-only action.
     domain.soft_delete(user_id=current_user_id)
     db.session.commit()
-
-    # Re-publish without the removed domain. Same seam as create_domain, for the
-    # same reason: the old bare create_site here dropped the wildcard cert and
-    # the micro-cache from the vhost, so removing ONE domain quietly took the
-    # site's other domains off HTTPS. It also only ran for docker apps, leaving
-    # php/static/flask vhosts still advertising the deleted name.
-    nginx_result = None
-    remaining = Domain.query_active().filter_by(application_id=application_id).count()
-    if remaining:
-        nginx_result = _publish_app_vhost(app)
-    elif app.app_type == 'docker' and app.port:
-        # Nothing left to serve: take the site down entirely.
-        NginxService.disable_site(app.name)
-        nginx_result = NginxService.delete_site(app.name)
+    _ensure_primary(application_id)
 
     return jsonify({
         'message': 'Domain deleted successfully',
-        'nginx': nginx_result
+        'nginx': _republish_after_removal(app)
     }), 200
+
+
+def _ensure_primary(application_id):
+    """Promote the oldest remaining domain when an app has none marked primary
+    (its primary was deleted or moved away). Without one the app has no HTTPS
+    redirect target and no name to redirect its other domains to."""
+    rows = (Domain.query_active().filter_by(application_id=application_id)
+            .order_by(Domain.id.asc()).all())
+    if rows and not any(r.is_primary for r in rows):
+        rows[0].is_primary = True
+        db.session.commit()
+
+
+def _republish_after_removal(app):
+    """Re-publish ``app`` after one of its domains left (deleted or moved).
+
+    Same seam as create_domain: the old bare create_site dropped the wildcard
+    cert and the micro-cache from the vhost, so removing ONE domain quietly
+    took the site's other domains off HTTPS, and it only ran for docker apps,
+    leaving php/static/flask vhosts still advertising the removed name.
+    """
+    if Domain.query_active().filter_by(application_id=app.id).count():
+        return _publish_app_vhost(app)
+    if app.app_type == 'docker' and app.port:
+        # Nothing left to serve: take the site down entirely.
+        NginxService.disable_site(app.name)
+        return NginxService.delete_site(app.name)
+    return None
+
+
+@domains_bp.route('/<int:domain_id>/move', methods=['POST'])
+@developer_required
+def move_domain(domain_id):
+    """Move a domain to another service in one step (was: delete + re-add).
+
+    Needs edit rights on both services. The domain becomes the target's
+    primary when the target has no domain yet. Its certificate belonged to
+    the source service's lineage, so HTTPS is switched off for it and the
+    response says to run Enable SSL on the target.
+    """
+    user = get_current_user()
+    domain = Domain.query_active().filter_by(id=domain_id).first()
+    if not domain:
+        raise not_found('domain')
+    source = Application.query_active().filter_by(id=domain.application_id).first()
+    if not source:
+        raise not_found('domain')
+    if not ResourceGrantService.can_edit_app(user, source):
+        raise permission_denied()
+
+    data = json_object()
+    target_id = data.get('application_id')
+    if not isinstance(target_id, int) or isinstance(target_id, bool):
+        raise ValidationError("'application_id' must be a service id")
+    if target_id == source.id:
+        raise ValidationError(f'{domain.name} is already on this service')
+    target = Application.query_active().filter_by(id=target_id).first()
+    if not target or not ResourceGrantService.can_access_app(user, target):
+        raise not_found('service')
+    if not ResourceGrantService.can_edit_app(user, target):
+        raise permission_denied()
+
+    had_https = bool(domain.ssl_enabled)
+    target_has_domains = (Domain.query_active().filter_by(application_id=target.id)
+                          .filter(Domain.id != domain.id).count() > 0)
+    domain.application_id = target.id
+    domain.is_primary = not target_has_domains
+    domain.ssl_enabled = False
+    domain.ssl_certificate_path = None
+    domain.ssl_key_path = None
+    db.session.commit()
+    _ensure_primary(source.id)
+
+    body = {
+        'message': f'{domain.name} moved from {source.name} to {target.name}',
+        'domain': domain.to_dict(),
+        'nginx': {
+            'source': _republish_after_removal(source),
+            'target': _publish_app_vhost(target),
+        },
+    }
+    if had_https:
+        body['ssl_notice'] = (f'{domain.name} is on plain HTTP for now: its certificate belonged to '
+                              f'{source.name}. Use Enable SSL on {target.name} to cover it.')
+    return jsonify(body), 200
 
 
 @domains_bp.route('/<int:domain_id>/ssl/enable', methods=['POST'])

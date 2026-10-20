@@ -40,6 +40,11 @@
   - A service's domains are now rendered primary first. The HTTP→HTTPS redirect targets `$server_name`, the first listed name, which used to be whatever order the database returned.
   - Changing the primary domain, or a domain's SSL flag, re-renders the vhost at once.
   - Tests: `backend/tests/test_redirect_aliases.py`.
+- **Move a domain to another service** (`POST /api/v1/domains/<id>/move`; Domains drawer → "Move to another service"). Upstream could only delete a domain and add it again. Moving needs edit rights on both services and re-publishes both vhosts. The source site is taken down when that was its last domain, as delete does.
+  - The domain becomes the target's primary when the target has none.
+  - Its HTTPS is switched off, because the certificate belonged to the source's lineage, and the response says to run Enable SSL on the target.
+  - Deleting or moving a primary now promotes the oldest remaining domain (`_ensure_primary`). Before, the service was left with no primary.
+  - Tests: `backend/tests/test_move_domain.py`.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.
