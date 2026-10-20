@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, X } from 'lucide-react';
+import { Bell, Check, Trash2, X } from 'lucide-react';
 import { useNotifications } from '../contexts/useNotifications.js';
 import { timeAgo } from '../utils/time';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +23,11 @@ export default function NotificationBell() {
     const navigate = useNavigate();
 
     // The provider is only mounted for authenticated users; render nothing otherwise.
-    const { items = [], unreadCount = 0, markRead, markAllRead, refresh, dismissNotice } = ctx || {};
+    const {
+        items = [], unreadCount = 0, markRead, markAllRead, refresh, dismissNotice, dismiss, clearRead,
+    } = ctx || {};
+    // Read bus notifications can be cleared once nothing is unread. Fork: arya-arav/ServerKit.
+    const clearable = items.some((it) => it.kind !== 'notice' && it.read);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -84,9 +88,13 @@ export default function NotificationBell() {
                 <div className="sk-notif__panel" role="menu" aria-label={t('notifications.bell', 'Notifications')}>
                     <div className="sk-notif__head">
                         <span className="sk-notif__heading">{t('notifications.heading', 'Notifications')}</span>
-                        {unreadCount > 0 && (
+                        {unreadCount > 0 ? (
                             <SharedButton variant="unstyled" type="button" className="sk-notif__markall" onClick={markAllRead}>
                                 <Check size={13} aria-hidden="true" /> {t('notifications.markAllRead', 'Mark all read')}
+                            </SharedButton>
+                        ) : clearable && clearRead && (
+                            <SharedButton variant="unstyled" type="button" className="sk-notif__markall" onClick={clearRead}>
+                                <Trash2 size={13} aria-hidden="true" /> {t('notifications.clearAll', 'Clear all')}
                             </SharedButton>
                         )}
                     </div>
@@ -126,26 +134,39 @@ export default function NotificationBell() {
                                         </SharedButton>
                                     </div>
                                 ) : (
-                                    <SharedButton variant="unstyled"
-                                        key={item.delivery_id}
-                                        type="button"
-                                        className={`sk-notif__item${item.read ? '' : ' is-unread'}`}
-                                        onClick={() => onItemClick(item)}
-                                    >
-                                        <span
-                                            className="sk-notif__dot"
-                                            style={{ background: SEVERITY_DOT[item.severity] || SEVERITY_DOT.info }}
-                                            aria-hidden="true"
-                                        />
-                                        <span className="sk-notif__content">
-                                            <span className="sk-notif__title">{item.title}</span>
-                                            {item.body && <span className="sk-notif__text">{item.body}</span>}
-                                            <span className="sk-notif__time">
-                                                {timeAgo(item.created_at)}
-                                                {item.action_path && <span className="sk-notif__cta"> · {item.action_label || t('common.actions.open', 'Open')} →</span>}
+                                    <div key={item.delivery_id}
+                                        className={`sk-notif__item has-dismiss${item.read ? '' : ' is-unread'}`}>
+                                        <SharedButton variant="unstyled"
+                                            type="button"
+                                            className="sk-notif__hit"
+                                            onClick={() => onItemClick(item)}
+                                        >
+                                            <span
+                                                className="sk-notif__dot"
+                                                style={{ background: SEVERITY_DOT[item.severity] || SEVERITY_DOT.info }}
+                                                aria-hidden="true"
+                                            />
+                                            <span className="sk-notif__content">
+                                                <span className="sk-notif__title">{item.title}</span>
+                                                {item.body && <span className="sk-notif__text">{item.body}</span>}
+                                                <span className="sk-notif__time">
+                                                    {timeAgo(item.created_at)}
+                                                    {item.action_path && <span className="sk-notif__cta"> · {item.action_label || t('common.actions.open', 'Open')} →</span>}
+                                                </span>
                                             </span>
-                                        </span>
-                                    </SharedButton>
+                                        </SharedButton>
+                                        {dismiss && (
+                                            <SharedButton variant="unstyled"
+                                                type="button"
+                                                className="sk-notif__dismiss"
+                                                onClick={() => dismiss(item.delivery_id)}
+                                                aria-label={t('notifications.removeItem', 'Remove {{title}}', { title: item.title })}
+                                                title={t('notifications.remove', 'Remove')}
+                                            >
+                                                <X size={14} aria-hidden="true" />
+                                            </SharedButton>
+                                        )}
+                                    </div>
                                 )
                             ))
                         )}

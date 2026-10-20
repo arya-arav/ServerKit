@@ -117,6 +117,8 @@ SELF_SCOPED = {
     'event_subscriptions.test_subscription': 'routes through get_for_user (owner check)',
     'event_subscriptions.update_subscription': 'routes through get_for_user (owner check)',
     'mobile.register_push': 'writes the caller\'s own push_subscriptions_json',
+    'notifications.clear_inbox': 'clear scoped to caller user_id',
+    'notifications.dismiss_inbox_item': 'inbox query scoped to caller user_id',
     'notifications.mark_inbox_all_read': 'mark_all_read scoped to caller user_id',
     'notifications.mark_inbox_read': 'inbox query scoped to caller user_id',
     'notifications.test_user_notification': 'sends only to the caller\'s own channels',

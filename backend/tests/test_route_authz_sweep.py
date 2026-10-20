@@ -206,6 +206,7 @@ VIEWER_WRITABLE = {
     # may enroll their own passkey, never nominate another account in JSON.
     'auth.passkey_register_options',
     'notifications.mark_inbox_all_read',
+    'notifications.clear_inbox',  # removes the caller's own notifications (fork)
     'notifications.test_user_notification',
     'notifications.unmute_own_email',
     'two_factor.initiate_2fa_setup',

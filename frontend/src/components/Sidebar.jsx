@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth.js';
 import { useTheme } from '../contexts/useTheme.js';
 import { useLayout } from '../contexts/useLayout.js';
-import { Star, ChevronRight, Layers, PanelLeftClose, PanelLeftOpen, X, Server } from 'lucide-react';
+import { ChevronRight, Layers, PanelLeftClose, PanelLeftOpen, X, Server } from 'lucide-react';
 import { api } from '../services/api';
 import { SIDEBAR_CATEGORIES, SIDEBAR_CATEGORY_LABELS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
 import { useTranslation } from 'react-i18next';
@@ -370,16 +370,6 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         <Server size={19} strokeWidth={2} aria-hidden="true" />
                     </div>
                     <span className="brand-text">{t('common.labels.serverKit', 'ServerKit')}</span>
-                    <a
-                        href="https://github.com/jhd3197/ServerKit"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="brand-star"
-                        aria-label={t('nav.starOnGithubLong', 'Star ServerKit on GitHub')}
-                        title={t('nav.starOnGithub', 'Star on GitHub')}
-                    >
-                        <Star size={14} aria-hidden="true" />
-                    </a>
                 </div>
             )}
 

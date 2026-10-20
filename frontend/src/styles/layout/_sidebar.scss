@@ -196,26 +196,6 @@
     letter-spacing: -0.02em;
 }
 
-// Star button in brand section — a quiet "star us on GitHub" affordance.
-// Color + a faint wash on hover; no burst, rings, or auto-play.
-.brand-star {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: $sidebar-icon-size;
-    height: $sidebar-icon-size;
-    border-radius: 50%;
-    color: $text-tertiary;
-    transition: color $transition-base, background-color $transition-base;
-    @include focus-ring();
-
-    &:hover {
-        color: $color-star;
-        background: rgba(245, 158, 11, 0.12);
-    }
-}
-
 // Custom Brand (White Label)
 .brand-section--custom {
     justify-content: flex-start;
@@ -763,7 +743,6 @@
 
             .sidebar-collapse-toggle__label,
             .brand-text,
-            .brand-star,
             .nav-category,
             .nav-expand-btn,
             .workspace-switcher__trigger > span,

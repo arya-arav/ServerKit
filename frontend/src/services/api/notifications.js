@@ -27,6 +27,15 @@ export async function markAllNotificationsRead(category = null) {
     return this.request(`/notifications/inbox/read-all${suffix}`, { method: 'POST' });
 }
 
+// Remove from the bell (the admin delivery log keeps them). Fork: arya-arav/ServerKit.
+export async function dismissNotification(deliveryId) {
+    return this.request(`/notifications/inbox/${deliveryId}/dismiss`, { method: 'POST' });
+}
+
+export async function clearNotifications(all = false) {
+    return this.request(`/notifications/inbox/clear${all ? '?all=1' : ''}`, { method: 'POST' });
+}
+
 // --- Org chat/webhook connections (admin) ---
 
 export async function getChatConnections() {

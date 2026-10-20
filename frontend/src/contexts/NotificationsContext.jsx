@@ -92,10 +92,33 @@ export function NotificationsProvider({ children }) {
         setItems((prev) => prev.filter((it) => it.notice_id !== noticeId));
     }, []);
 
+    // Remove one bus notification from the bell. Fork: arya-arav/ServerKit.
+    const dismiss = useCallback(async (deliveryId) => {
+        setItems((prev) => prev.filter((it) => it.delivery_id !== deliveryId));
+        try {
+            const res = await api.dismissNotification(deliveryId);
+            if (res && typeof res.unread_count === 'number') setBusUnread(res.unread_count);
+        } catch {
+            // ignore — the next refresh reconciles
+        }
+    }, []);
+
+    // Remove every read bus notification (notices clear when fixed or dismissed).
+    const clearRead = useCallback(async () => {
+        setItems((prev) => prev.filter((it) => it.kind === 'notice' || !it.read));
+        try {
+            await api.clearNotifications();
+        } catch {
+            // ignore — the next refresh reconciles
+        }
+    }, []);
+
     const noticeCount = items.reduce((n, it) => (it.kind === 'notice' ? n + 1 : n), 0);
     const unreadCount = busUnread + noticeCount;
 
-    const value = { items, unreadCount, loading, refresh, markRead, markAllRead, dismissNotice };
+    const value = {
+        items, unreadCount, loading, refresh, markRead, markAllRead, dismissNotice, dismiss, clearRead,
+    };
     return (
         <NotificationsContext.Provider value={value}>
             {children}

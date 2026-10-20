@@ -158,7 +158,8 @@
 
     // System-notice rows are a div (clickable hit area + a dismiss button) rather
     // than a single button, so they can carry a "Fix" action and an X to dismiss.
-    &__item.is-notice { cursor: default; }
+    &__item.is-notice,
+    &__item.has-dismiss { cursor: default; }
 
     &__hit {
         display: flex;

@@ -400,7 +400,40 @@ class NotificationBusService:
             NotificationDelivery.query
             .filter_by(recipient_user_id=user_id,
                        channel=NotificationDelivery.CHANNEL_INAPP)
+            .filter(NotificationDelivery.dismissed_at.is_(None))
         )
+
+    @classmethod
+    def dismiss(cls, user_id, delivery_id):
+        """Remove one in-app notification from the user's bell and inbox.
+
+        The delivery row stays for the admin delivery log. Returns True if it
+        was found. Fork: arya-arav/ServerKit.
+        """
+        delivery = cls._inbox_query(user_id).filter_by(id=delivery_id).first()
+        if not delivery:
+            return False
+        now = datetime.utcnow()
+        delivery.dismissed_at = now
+        if delivery.read_at is None:
+            delivery.read_at = now
+        db.session.commit()
+        return True
+
+    @classmethod
+    def clear(cls, user_id, include_unread=False):
+        """Remove the user's read notifications (all of them with
+        ``include_unread``). Returns the count. Fork: arya-arav/ServerKit."""
+        now = datetime.utcnow()
+        query = cls._inbox_query(user_id)
+        if not include_unread:
+            query = query.filter(NotificationDelivery.read_at.isnot(None))
+        cleared = query.update(
+            {NotificationDelivery.dismissed_at: now,
+             NotificationDelivery.read_at: db.func.coalesce(NotificationDelivery.read_at, now)},
+            synchronize_session=False)
+        db.session.commit()
+        return cleared
 
     @classmethod
     def inbox(cls, user_id, limit=20, offset=0, unread_only=False,

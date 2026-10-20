@@ -142,6 +142,9 @@ class NotificationDelivery(db.Model):
     sent_at = db.Column(db.DateTime)
     # In-app read-state. Null = unread (the bell's unread count counts these).
     read_at = db.Column(db.DateTime)
+    # Removed from the recipient's bell and inbox; the delivery log keeps it.
+    # Fork: arya-arav/ServerKit.
+    dismissed_at = db.Column(db.DateTime)
 
     recipient = db.relationship('User', foreign_keys=[recipient_user_id])
 

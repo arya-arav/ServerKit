@@ -337,6 +337,28 @@ def mark_inbox_read(delivery_id):
     return jsonify({'success': True, 'unread_count': NotificationBusService.unread_count(user_id)}), 200
 
 
+@notifications_bp.route('/inbox/<int:delivery_id>/dismiss', methods=['POST'])
+@jwt_required()
+def dismiss_inbox_item(delivery_id):
+    """Remove one in-app notification from the bell. Fork: arya-arav/ServerKit."""
+    user_id = int(get_jwt_identity())
+    if not NotificationBusService.dismiss(user_id, delivery_id):
+        return jsonify({'error': 'Notification not found'}), 404
+    return jsonify({'success': True, 'unread_count': NotificationBusService.unread_count(user_id)}), 200
+
+
+@notifications_bp.route('/inbox/clear', methods=['POST'])
+@jwt_required()
+def clear_inbox():
+    """Remove read notifications from the bell (``?all=1``: every one).
+    Fork: arya-arav/ServerKit."""
+    user_id = int(get_jwt_identity())
+    include_unread = request.args.get('all', '').lower() in ('1', 'true', 'yes')
+    cleared = NotificationBusService.clear(user_id, include_unread=include_unread)
+    return jsonify({'success': True, 'cleared': cleared,
+                    'unread_count': NotificationBusService.unread_count(user_id)}), 200
+
+
 @notifications_bp.route('/inbox/read-all', methods=['POST'])
 @jwt_required()
 def mark_inbox_all_read():

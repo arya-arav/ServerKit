@@ -284,6 +284,57 @@ class TestInbox:
         resp3 = client.get('/api/v1/notifications/inbox/unread-count', headers=auth_headers)
         assert resp3.get_json()['count'] == 0
 
+    # Fork: arya-arav/ServerKit — removing notifications from the bell.
+    def test_dismiss_removes_one_from_the_inbox_but_keeps_the_delivery(self, app):
+        user = _make_user()
+        _prefs(user, channels=[], severities=['critical'])
+        NotificationBusService.send('security.alert', to=user, data={'message': 'x'})
+        NotificationBusService.send('security.alert', to=user, data={'message': 'y'})
+        first = NotificationBusService.inbox(user.id)[0]['delivery_id']
+
+        assert NotificationBusService.dismiss(user.id, first) is True
+
+        assert [i['delivery_id'] for i in NotificationBusService.inbox(user.id)] != [first]
+        assert len(NotificationBusService.inbox(user.id)) == 1
+        assert NotificationBusService.unread_count(user.id) == 1
+        assert NotificationDelivery.query.get(first) is not None   # admin log keeps it
+        assert NotificationBusService.dismiss(user.id, first) is False
+
+    def test_clear_removes_read_ones_and_all_with_the_flag(self, app):
+        user = _make_user()
+        _prefs(user, channels=[], severities=['critical'])
+        for msg in ('a', 'b', 'c'):
+            NotificationBusService.send('security.alert', to=user, data={'message': msg})
+        NotificationBusService.mark_read(user.id, NotificationBusService.inbox(user.id)[0]['delivery_id'])
+
+        assert NotificationBusService.clear(user.id) == 1
+        assert len(NotificationBusService.inbox(user.id)) == 2
+        assert NotificationBusService.clear(user.id, include_unread=True) == 2
+        assert NotificationBusService.inbox(user.id) == []
+        assert NotificationBusService.unread_count(user.id) == 0
+
+    def test_a_user_cannot_dismiss_someone_elses_notification(self, app, client, auth_headers):
+        other = _make_user()
+        _prefs(other, channels=[], severities=['critical'])
+        NotificationBusService.send('security.alert', to=other, data={'message': 'x'})
+        delivery_id = NotificationBusService.inbox(other.id)[0]['delivery_id']
+
+        resp = client.post(f'/api/v1/notifications/inbox/{delivery_id}/dismiss', headers=auth_headers)
+
+        assert resp.status_code == 404
+        assert len(NotificationBusService.inbox(other.id)) == 1
+
+    def test_clear_api(self, app, client, auth_headers):
+        admin = User.query.filter_by(username='testadmin').first()
+        _prefs(admin, channels=[], severities=['critical'])
+        NotificationBusService.send('security.alert', to=admin, data={'message': 'x'})
+
+        resp = client.post('/api/v1/notifications/inbox/clear?all=1', headers=auth_headers)
+
+        assert resp.status_code == 200
+        assert resp.get_json()['cleared'] == 1
+        assert client.get('/api/v1/notifications/inbox', headers=auth_headers).get_json()['items'] == []
+
 
 class TestDeliveryLog:
     def test_delivery_log_and_stats(self, app, captured_email):

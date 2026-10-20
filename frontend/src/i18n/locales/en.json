@@ -8445,8 +8445,6 @@
         "security": "Security",
         "servers": "Servers",
         "services": "Services",
-        "starOnGithub": "Star on GitHub",
-        "starOnGithubLong": "Star ServerKit on GitHub",
         "styleGuide": "Style guide",
         "terminal": "Terminal / logs",
         "testSandbox": "Test sandbox",
@@ -8463,6 +8461,7 @@
     "notifications": {
         "bell": "Notifications",
         "bellUnread": "Notifications, {{count}} unread",
+        "clearAll": "Clear all",
         "deliveryHint": "Configure shared destinations for server alerts. These settings affect everyone and are independent of personal preferences. Save a channel before sending a test.",
         "deliverySettings": "Delivery settings",
         "dismissItem": "Dismiss {{title}}",
@@ -8474,6 +8473,8 @@
         "personalChannelsHint": "Choose destinations for your account. Slack and shared webhooks are managed in Delivery settings.",
         "personalHint": "Control notifications for your account. Save preferences to apply your changes.",
         "recentActivity": "Recent system and delivery activity",
+        "remove": "Remove",
+        "removeItem": "Remove {{title}}",
         "review": "Review",
         "scope": "Notification settings scope",
         "seeAll": "See all notifications"

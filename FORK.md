@@ -81,12 +81,17 @@
   - **The rail stays narrow:** it no longer opens over the page on hover; each icon shows its name as a tooltip instead.
   - **App top bar:** a slim bar across the page column carries the notification bell and the account menu at the top right. Page content starts below it, and full-page tools subtract its height.
   - **Where the account stays:** on mobile and in the top-bar layout there is no app top bar, so the account stays in the sidebar there.
-  - **The "+" button:** the brand row's quick-create button is gone; the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+".
+  - **The "+" button:** the brand row's quick-create button is gone; the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+". The brand row's "Star on GitHub" link is gone too.
   - **Setup health icon** (`SetupHealthIndicator.jsx`, admins): a shield beside the bell, green when setup is complete, amber/red with a count when items are open; it opens the Doctor. The dashboard's full-width "Setup complete" strip is gone, and its card only appears when there is something to review.
 - **First/last name and profile picture** (`User.first_name`, `last_name`, `avatar`, migration `112_user_profile_name_avatar`; `app/utils/profile.py`; Settings → Profile).
   - **Name:** the top bar shows "First Last" (`display_name`) instead of the username when a name is set.
   - **Picture:** cropped to a square and scaled to 256 px in the browser, and stored as a data URL so an `<img>` can show it without the bearer token. The server accepts PNG, JPEG and WEBP only, checks the bytes match the declared type (no SVG: it can carry script), and caps it at 256 KB.
   - Tests: `backend/tests/test_user_profile.py`.
+- **Remove notifications from the bell** (`NotificationDelivery.dismissed_at`, migration `113_notification_dismissed_at`; `POST /api/v1/notifications/inbox/<id>/dismiss` and `/inbox/clear`). Upstream could only mark notifications read, so they stayed in the bell forever.
+  - **One at a time:** each notification has a remove (✕) button.
+  - **All at once:** once nothing is unread, the header's "Mark all read" becomes "Clear all".
+  - **History is kept:** removed notifications leave only the user's bell and inbox; the admin delivery log keeps them.
+  - Tests: the dismiss/clear cases in `backend/tests/test_notification_bus.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

@@ -1044,7 +1044,9 @@ Regenerate (backend/):
 - `POST /notifications/admin/email-providers/{provider_id}/default`
 - `POST /notifications/admin/email-providers/{provider_id}/test`
 - `POST /notifications/inbound/email`
+- `POST /notifications/inbox/clear`
 - `POST /notifications/inbox/read-all`
+- `POST /notifications/inbox/{delivery_id}/dismiss`
 - `POST /notifications/inbox/{delivery_id}/read`
 - `POST /notifications/preferences/email/unmute`
 - `POST /notifications/preferences/test`
