@@ -514,6 +514,15 @@ def add_email_provider():
     return jsonify({'provider': provider.to_dict(), 'test': test}), 201
 
 
+@notifications_bp.route('/admin/email-providers/test', methods=['POST'])
+@admin_required
+def test_email_provider_config():
+    """Validate unsaved provider settings without storing them. Pass
+    provider_id to reuse that provider's stored secrets when left blank."""
+    result = EmailProviderService.test_config(json_object())
+    return jsonify(result), 200 if result.get('success') else 400
+
+
 @notifications_bp.route('/admin/email-providers/<int:provider_id>/test', methods=['POST'])
 @admin_required
 def test_email_provider(provider_id):
@@ -526,8 +535,12 @@ def test_email_provider(provider_id):
 @admin_required
 def update_email_provider(provider_id):
     """Update a provider's usage flags (uses_notifications / uses_relay /
-    relay_priority). uses_relay applies only to SMTP."""
-    row = EmailProviderService.update_usage(provider_id, json_object())
+    relay_priority; uses_relay applies only to SMTP) and, when sent, its
+    credential fields, sender and is_active. Blank secrets are kept."""
+    data = json_object()
+    row = EmailProviderService.update_usage(provider_id, data)
+    if row is not None:
+        row = EmailProviderService.update_settings(provider_id, data)
     if row is None:
         return jsonify({'error': 'Provider not found'}), 404
     return jsonify({'success': True, 'provider': row.to_dict()}), 200

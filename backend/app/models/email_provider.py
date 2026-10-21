@@ -51,6 +51,13 @@ class EmailProviderConnection(TimestampMixin, JsonColumnMixin, db.Model):
             out[key] = decrypt_secret_safe(value) if isinstance(value, str) else value
         return out
 
+    def public_settings(self):
+        """Non-secret credential fields (host, port, username...) for edit
+        forms. Secret fields are left out whatever their storage state."""
+        from app.notifications.providers import SUPPORTED
+        secrets = set(SUPPORTED.get(self.provider, {}).get('secrets', []))
+        return {k: v for k, v in self.raw_credentials().items() if k not in secrets}
+
     def to_dict(self):
         creds = self.raw_credentials()
         # Surface which non-secret fields are set / the masked tail — never secrets.
@@ -66,6 +73,7 @@ class EmailProviderConnection(TimestampMixin, JsonColumnMixin, db.Model):
             'uses_relay': self.uses_relay,
             'relay_priority': self.relay_priority,
             'configured_fields': sorted(creds.keys()),
+            'settings': self.public_settings(),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'last_tested_at': self.last_tested_at.isoformat() if self.last_tested_at else None,
             'last_test_ok': self.last_test_ok,

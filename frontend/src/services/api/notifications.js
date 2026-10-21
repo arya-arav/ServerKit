@@ -97,6 +97,21 @@ export async function addEmailProvider(data) {
     });
 }
 
+// Validate unsaved settings; provider_id reuses stored secrets left blank.
+export async function testEmailProviderConfig(data) {
+    return this.request('/notifications/admin/email-providers/test', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+export async function updateEmailProvider(providerId, data) {
+    return this.request(`/notifications/admin/email-providers/${providerId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    });
+}
+
 export async function testEmailProvider(providerId) {
     return this.request(`/notifications/admin/email-providers/${providerId}/test`, { method: 'POST' });
 }

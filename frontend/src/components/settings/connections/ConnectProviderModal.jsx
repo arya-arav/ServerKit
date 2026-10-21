@@ -854,8 +854,15 @@ function EmailBody({ isAdmin, relayConfig, onSave, onTest, onDisable }) {
             </label>
             <label className="conn-check">
                 <Checkbox checked={form.enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: Boolean(v) }))} />
-                <span>{t('app.connectProviderModal.routeTheMailServerSOutbound', 'Route the mail server\'s outbound mail through this relay')}</span>
+                <span>{cfg.core
+                    ? t('app.connectProviderModal.usePanelEmail', 'Send the panel\'s email (alerts, notifications) through this server')
+                    : t('app.connectProviderModal.routeTheMailServerSOutbound', 'Route the mail server\'s outbound mail through this relay')}</span>
             </label>
+            {cfg.core && (
+                <p className="conn-modal__note">
+                    <Mail size={15} /> {t('app.connectProviderModal.coreSmtpNote', 'This is the same SMTP connection as Settings → Notifications. Install the Email extension to also relay a mail server\'s outbound mail.')}
+                </p>
+            )}
 
             <div className="conn-form__actions conn-form__actions--split">
                 <span>

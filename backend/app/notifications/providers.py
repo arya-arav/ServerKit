@@ -57,6 +57,11 @@ SUPPORTED = {
 _TIMEOUT = 20
 
 
+def _is_masked(value):
+    """A form echoing back the stored-secret placeholder, not a new value."""
+    return isinstance(value, str) and bool(value) and set(value) <= {'*', '•'}
+
+
 class EmailProviderService:
 
     # ------------------------------------------------------------------
@@ -156,6 +161,38 @@ class EmailProviderService:
                 row.relay_priority = int(fields['relay_priority'])
             except (TypeError, ValueError):
                 pass
+        db.session.commit()
+        return row
+
+    @classmethod
+    def update_settings(cls, provider_id, data):
+        """Edit a provider's credentials/sender in place. A blank or masked
+        secret keeps the stored one; ``is_active`` toggles the connection."""
+        row = cls.get_provider(provider_id)
+        if not row:
+            return None
+        spec = SUPPORTED.get(row.provider, {'fields': [], 'secrets': []})
+        creds = row.raw_credentials()
+        for field in spec['fields']:
+            if field not in data:
+                continue
+            value = data.get(field)
+            if field in spec['secrets']:
+                if not value or _is_masked(value):
+                    continue
+                if isinstance(value, str) and not is_encrypted(value):
+                    value = encrypt_secret(value)
+            if value in (None, ''):
+                creds.pop(field, None)
+            else:
+                creds[field] = value
+        row.credentials_json = json.dumps(creds)
+        if 'from_address' in data:
+            row.from_address = (data.get('from_address') or '').strip() or None
+        if data.get('from_name'):
+            row.from_name = data['from_name'].strip()
+        if 'is_active' in data:
+            row.is_active = bool(data['is_active'])
         db.session.commit()
         return row
 
@@ -347,6 +384,32 @@ class EmailProviderService:
         provider.last_test_ok = bool(result.get('success'))
         db.session.commit()
         return result
+
+    @classmethod
+    def test_config(cls, data):
+        """Validate unsaved settings without storing them. With ``provider_id``,
+        blank or masked secrets fall back to that provider's stored ones, so
+        an edit form can test without re-entering the password."""
+        provider = (data.get('provider') or '').lower().strip()
+        stored = cls.get_provider(data['provider_id']) if data.get('provider_id') else None
+        if stored:
+            provider = stored.provider
+        if provider not in SUPPORTED:
+            return {'success': False, 'error': f'Unsupported email provider: {provider}'}
+        spec = SUPPORTED[provider]
+        creds = stored.credentials() if stored else {}
+        for field in spec['fields']:
+            value = data.get(field)
+            if field in spec['secrets'] and (not value or _is_masked(value)):
+                continue
+            if value not in (None, ''):
+                creds[field] = value
+        if provider == 'smtp' and not str(creds.get('host') or '').strip():
+            return {'success': False, 'error': 'An SMTP host is required'}
+        try:
+            return cls._test(provider, creds)
+        except Exception as exc:
+            return {'success': False, 'error': str(exc)[:300]}
 
     @classmethod
     def _test(cls, provider, creds):

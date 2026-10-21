@@ -1041,6 +1041,7 @@ Regenerate (backend/):
 - `POST /notifications/admin/chat-connections/{conn_id}/test`
 - `POST /notifications/admin/deliveries/{delivery_id}/retry`
 - `POST /notifications/admin/email-providers`
+- `POST /notifications/admin/email-providers/test`
 - `POST /notifications/admin/email-providers/{provider_id}/default`
 - `POST /notifications/admin/email-providers/{provider_id}/test`
 - `POST /notifications/inbound/email`

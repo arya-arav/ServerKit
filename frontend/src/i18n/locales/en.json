@@ -1205,6 +1205,7 @@
             "connected": "Connected",
             "connecting": "Connecting…",
             "connectionName": "Connection name",
+            "coreSmtpNote": "This is the same SMTP connection as Settings → Notifications. Install the Email extension to also relay a mail server's outbound mail.",
             "createADedicatedGithubAppFor": "Create a dedicated GitHub App for this server. You confirm once on GitHub (no OAuth secrets to copy), and its credentials are stored locally on your server.",
             "createAnOauthAppOn": "Create an OAuth app on",
             "digitaloceanPersonalAccessToken": "DigitalOcean personal access token",
@@ -1267,6 +1268,7 @@
             "smtpUsernameApiToken": "SMTP username / API token",
             "stored": "•••••••• stored",
             "thisServerSPublicIp": "This server's public IP",
+            "usePanelEmail": "Send the panel's email (alerts, notifications) through this server",
             "useStarttlsRecommended": "Use STARTTLS (recommended)",
             "whereDoIGetThis": "Where do I get this?",
             "yourAccountEmailGlobalKeySimplest": "Your account email + global key. Simplest to set up, but grants full account access."

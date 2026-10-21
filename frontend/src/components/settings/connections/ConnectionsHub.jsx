@@ -40,6 +40,27 @@ const CATEGORY_FOCUS_ID = {
     storage: 'connections-storage',
 };
 
+// The panel's own SMTP connection shaped like a relay config, for panels
+// without the Email extension. `core` routes the card's actions to the core
+// email-provider API; `id` is absent until a connection exists. Fork.
+async function coreSmtpRelay() {
+    const data = await api.getEmailProviders();
+    const smtp = (data.providers || []).filter((p) => p.provider === 'smtp' && p.uses_notifications);
+    const row = smtp.find((p) => p.is_default) || smtp[0];
+    if (!row) return { core: true };
+    const s = row.settings || {};
+    return {
+        core: true,
+        id: row.id,
+        host: s.host || '',
+        port: Number(s.port) || 587,
+        username: s.username || '',
+        use_tls: s.use_tls !== false && String(s.use_tls).toLowerCase() !== 'false',
+        enabled: row.is_active,
+        password_set: (row.configured_fields || []).includes('password'),
+    };
+}
+
 export default function ConnectionsHub() {
     const { t } = useTranslation();
     const register = useSettingFocus();
@@ -83,9 +104,10 @@ export default function ConnectionsHub() {
                 soft('cloud', api.getCloudProviders().then((d) => d.providers || []), []),
                 soft('storage', api.getStorageConfig(), null),
                 // The relay endpoint belongs to the Email extension: a 404 means
-                // it isn't installed (no relay), not that the read failed.
+                // it isn't installed, so the card edits the panel's own SMTP
+                // connection instead (fork).
                 soft('email', api.getEmailRelay().catch((err) => {
-                    if (err?.status === 404) return null;
+                    if (err?.status === 404) return isAdmin ? coreSmtpRelay() : null;
                     throw err;
                 }), null),
                 soft('registrar', api.getRegistrarConnections().then((d) => d.connections || []), []),
@@ -288,9 +310,19 @@ export default function ConnectionsHub() {
     }, [t, toast]);
 
     // ── Email relay ──
+    // Without the Email extension, relayConfig.core is set and these edit the
+    // core SMTP email provider (the one Settings → Notifications sends with).
     const onSaveRelay = useCallback(async (payload) => {
         try {
-            const res = await api.updateEmailRelay(payload);
+            let res;
+            if (relayConfig?.core) {
+                const { enabled, provider_hint: _hint, ...fields } = payload;
+                res = relayConfig.id
+                    ? await api.updateEmailProvider(relayConfig.id, { ...fields, is_active: enabled })
+                    : await api.addEmailProvider({ provider: 'smtp', name: 'SMTP', ...fields, is_active: enabled });
+            } else {
+                res = await api.updateEmailRelay(payload);
+            }
             toast.success(res?.apply?.note || t('app.connectionsHub.relaySaved', 'Relay saved'));
             await loadData();
             return true;
@@ -298,11 +330,13 @@ export default function ConnectionsHub() {
             toastError(toast, t('app.connectionsHub.failedToSaveRelay', "Couldn't save the relay."), err);
             return false;
         }
-    }, [toast, t, loadData]);
+    }, [toast, t, loadData, relayConfig]);
 
     const onTestRelay = useCallback(async (payload) => {
         try {
-            const res = await api.testEmailRelay(payload);
+            const res = relayConfig?.core
+                ? await api.testEmailProviderConfig({ provider: 'smtp', provider_id: relayConfig.id, ...payload })
+                : await api.testEmailRelay(payload);
             if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks', 'Connection works'));
             else toastError(toast, t('app.connectionsHub.connectionTestFailed', "Couldn't connect."), res && res.error);
             return res;
@@ -310,11 +344,12 @@ export default function ConnectionsHub() {
             toastError(toast, t('app.connectionsHub.connectionTestFailed', "Couldn't connect."), err);
             return null;
         }
-    }, [t, toast]);
+    }, [t, toast, relayConfig]);
 
     const onDisableRelay = useCallback(async () => {
         try {
-            await api.disableEmailRelay();
+            if (relayConfig?.core) await api.updateEmailProvider(relayConfig.id, { is_active: false });
+            else await api.disableEmailRelay();
             toast.success(t('app.connectionsHub.relayDisabled', 'Relay disabled'));
             await loadData();
             return true;
@@ -322,7 +357,7 @@ export default function ConnectionsHub() {
             toastError(toast, t('app.connectionsHub.failedToDisableRelay', "Couldn't turn off the relay."), err);
             return false;
         }
-    }, [toast, t, loadData]);
+    }, [toast, t, loadData, relayConfig]);
 
     // ── Registrar ──
     const onAddRegistrar = useCallback(async (payload) => {
