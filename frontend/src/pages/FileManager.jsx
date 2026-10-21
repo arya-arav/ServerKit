@@ -382,7 +382,11 @@ function FileManager() {
     // that doesn't exist on the remote host.
     useEffect(() => {
         const previousTarget = previousTargetRef.current;
-        const targetChanged = previousTarget.kind !== target.kind || previousTarget.server_id !== target.server_id;
+        // `?? null`: the local target has no server_id (undefined) while the
+        // initial ref holds null; comparing them raw made every fresh load
+        // "change target" and drop the ?path= deep link for /home (fork).
+        const targetChanged = previousTarget.kind !== target.kind
+            || (previousTarget.server_id ?? null) !== (target.server_id ?? null);
         previousTargetRef.current = { kind: target.kind, server_id: target.server_id };
 
         if (!targetChanged) return;
