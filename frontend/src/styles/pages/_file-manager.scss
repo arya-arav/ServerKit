@@ -1914,3 +1914,296 @@ $drawer-width: 520px;
     border: 1px solid fade($accent-primary-raw, 25%);
     flex-shrink: 0;
 }
+
+// ============================================
+// CODE EDITOR WORKSPACE (fork: arya-arav/ServerKit)
+// Open files as tabs over the file list; CodeMirror 6 inside each pane.
+// ============================================
+.fm-editor {
+    position: absolute;
+    inset: 0;
+    z-index: $z-sticky;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: $radius-card;
+    overflow: hidden;
+
+    &--loading {
+        align-items: center;
+        justify-content: center;
+        color: var(--text-dim);
+    }
+
+    &__bar {
+        display: flex;
+        align-items: stretch;
+        gap: $space-2;
+        min-height: $control-lg;
+        padding-inline-end: $space-2;
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--border);
+    }
+
+    &__tabs {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+    }
+
+    &__tab {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        max-width: 240px;
+        border-inline-end: 1px solid var(--border);
+        border-top: 2px solid transparent;
+        color: var(--text-dim);
+
+        &.is-active {
+            background: var(--surface);
+            color: var(--text-primary);
+            border-top-color: var(--accent);
+        }
+    }
+
+    &__tab-name {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        min-width: 0;
+        padding: 0 $space-2 0 $space-3;
+        font-size: $text-sm;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        @include focus-ring();
+    }
+
+    &__dot {
+        width: 7px;
+        height: 7px; // geometry: unsaved dot
+        flex-shrink: 0;
+        border-radius: $radius-full;
+        background: var(--amber);
+    }
+
+    &__tab-close {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px; // geometry: tab close
+        margin-inline-end: $space-1;
+        border-radius: $radius-control;
+        color: var(--text-faint);
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+        }
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $space-1;
+        flex-shrink: 0;
+    }
+
+    &__exit {
+        display: grid;
+        place-items: center;
+        width: $control-sm;
+        height: $control-sm;
+        border-radius: $radius-control;
+        color: var(--text-dim);
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+        }
+    }
+
+    &__body {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+    }
+
+    &__pane {
+        position: absolute;
+        inset: 0;
+
+        &[hidden] {
+            display: none;
+        }
+    }
+
+    &__status {
+        display: flex;
+        align-items: center;
+        gap: $space-4;
+        padding: $space-1 $space-3;
+        background: var(--surface-2);
+        border-top: 1px solid var(--border);
+        color: var(--text-faint);
+        font-size: $text-xs;
+        white-space: nowrap;
+    }
+
+    &__path {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-family: $font-mono;
+    }
+
+    &__spacer {
+        flex: 1;
+    }
+
+    &__state.is-dirty {
+        color: var(--amber);
+    }
+}
+
+// CodeMirror view (editor/CodeEditor.jsx) — colours from theme tokens.
+.fm-code-editor {
+    height: 100%;
+
+    .cm-editor {
+        height: 100%;
+        background: var(--surface);
+        color: var(--text-primary);
+        font-size: $text-sm;
+
+        &.cm-focused {
+            outline: none;
+        }
+    }
+
+    .cm-scroller {
+        font-family: $font-mono;
+        line-height: 1.6;
+    }
+
+    .cm-gutters {
+        background: var(--surface);
+        border-inline-end: 1px solid var(--border);
+        color: var(--text-ghost);
+    }
+
+    .cm-activeLine,
+    .cm-activeLineGutter {
+        background: var(--surface-hover);
+    }
+
+    .cm-activeLineGutter {
+        color: var(--text-dim);
+    }
+
+    .cm-cursor {
+        border-inline-start-color: var(--accent);
+    }
+
+    .cm-selectionBackground,
+    &.cm-focused .cm-selectionBackground,
+    .cm-content ::selection {
+        background: var(--accent-bg) !important;
+    }
+
+    .cm-selectionMatch {
+        background: var(--accent-bg-soft);
+    }
+
+    .cm-matchingBracket {
+        background: var(--accent-bg);
+        outline: 1px solid var(--accent-dim);
+    }
+
+    .cm-foldPlaceholder {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+    }
+
+    // Find / replace panel (Ctrl+F).
+    .cm-panels {
+        background: var(--surface-2);
+        color: var(--text-primary);
+        border-color: var(--border);
+    }
+
+    .cm-panel.cm-search {
+        padding: $space-2 $space-3;
+        font-size: $text-sm;
+
+        input,
+        button {
+            font: inherit;
+            color: var(--text-primary);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: $radius-control;
+            padding: $space-hair $space-2;
+        }
+
+        label {
+            color: var(--text-dim);
+        }
+    }
+
+    .cm-searchMatch {
+        background: var(--accent-bg-soft);
+        outline: 1px solid var(--accent-dim);
+    }
+
+    .cm-tooltip {
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
+        color: var(--text-primary);
+    }
+
+    .cm-tooltip-autocomplete > ul > li[aria-selected] {
+        background: var(--accent-bg-soft);
+        color: var(--text-primary);
+    }
+
+    // Syntax tokens (@lezer/highlight classHighlighter).
+    .tok-keyword,
+    .tok-operatorKeyword,
+    .tok-modifier { color: var(--violet); }
+    .tok-string,
+    .tok-string2,
+    .tok-inserted { color: var(--green); }
+    .tok-number,
+    .tok-bool,
+    .tok-atom,
+    .tok-literal { color: var(--amber); }
+    .tok-comment { color: var(--text-ghost); font-style: italic; }
+    .tok-variableName.tok-definition,
+    .tok-function,
+    .tok-propertyName.tok-definition { color: var(--accent); }
+    .tok-typeName,
+    .tok-className,
+    .tok-namespace { color: var(--cyan); }
+    .tok-tagName { color: var(--red); }
+    .tok-attributeName,
+    .tok-propertyName { color: var(--cyan); }
+    .tok-meta,
+    .tok-macroName { color: var(--text-dim); }
+    .tok-invalid,
+    .tok-deleted { color: var(--red); }
+    .tok-heading { color: var(--accent); font-weight: $font-weight-semibold; }
+    .tok-link,
+    .tok-url { color: var(--accent); text-decoration: underline; }
+    .tok-emphasis { font-style: italic; }
+    .tok-strong { font-weight: $font-weight-semibold; }
+}

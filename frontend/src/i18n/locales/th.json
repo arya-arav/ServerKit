@@ -2736,7 +2736,6 @@
             "failedToReadFile": "ไม่สามารถอ่านไฟล์: {{message}}",
             "failedToRename": "ไม่สามารถเปลี่ยนชื่อ: {{message}}",
             "failedToSave": "ไม่สามารถบันทึก: {{message}}",
-            "fileSaved": "บันทึกไฟล์แล้ว",
             "fileSystem": "ระบบไฟล์",
             "filesWillBeUploadedTo": "ไฟล์ต่างๆ จะถูกอัพโหลดไปที่",
             "folderCreated": "สร้างโฟลเดอร์แล้ว",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "คัดลอกเส้นทาง",
             "downloadFile": "ดาวน์โหลดไฟล์",
-            "editing": "กำลังแก้ไข",
             "fileContents": "เนื้อหาไฟล์",
             "filePreview": "ดูตัวอย่างไฟล์",
             "group": "กลุ่ม",

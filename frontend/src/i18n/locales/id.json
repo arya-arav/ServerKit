@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Gagal membaca file: {{message}}",
             "failedToRename": "Gagal mengganti nama: {{message}}",
             "failedToSave": "Gagal menyimpan: {{message}}",
-            "fileSaved": "Berkas disimpan",
             "fileSystem": "Sistem berkas",
             "filesWillBeUploadedTo": "File akan diunggah ke",
             "folderCreated": "Folder dibuat",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Salin jalur",
             "downloadFile": "Unduh Berkas",
-            "editing": "Mengedit",
             "fileContents": "Isi berkas",
             "filePreview": "Pratinjau berkas",
             "group": "Kelompok",

@@ -2736,7 +2736,6 @@
             "failedToReadFile": "파일을 읽지 못했습니다: {{message}}",
             "failedToRename": "이름을 바꾸지 못했습니다: {{message}}",
             "failedToSave": "저장 실패: {{message}}",
-            "fileSaved": "파일이 저장되었습니다",
             "fileSystem": "파일 시스템",
             "filesWillBeUploadedTo": "파일은 다음 위치에 업로드됩니다.",
             "folderCreated": "폴더가 생성되었습니다.",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "경로 복사",
             "downloadFile": "파일 다운로드",
-            "editing": "편집 중",
             "fileContents": "파일 내용",
             "filePreview": "파일 미리보기",
             "group": "그룹",

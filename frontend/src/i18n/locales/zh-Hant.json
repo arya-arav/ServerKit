@@ -2736,7 +2736,6 @@
             "failedToReadFile": "讀取檔案失敗：{{message}}",
             "failedToRename": "重新命名失敗：{{message}}",
             "failedToSave": "儲存失敗：{{message}}",
-            "fileSaved": "檔案已儲存",
             "fileSystem": "檔案系統",
             "filesWillBeUploadedTo": "檔案將上傳至",
             "folderCreated": "資料夾已建立",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "複製路徑",
             "downloadFile": "下載檔案",
-            "editing": "編輯中",
             "fileContents": "檔案內容",
             "filePreview": "檔案預覽",
             "group": "群組",

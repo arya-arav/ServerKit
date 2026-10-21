@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Datei konnte nicht gelesen werden: {{message}}",
             "failedToRename": "Umbenennen fehlgeschlagen: {{message}}",
             "failedToSave": "Speichern fehlgeschlagen: {{message}}",
-            "fileSaved": "Datei gespeichert",
             "fileSystem": "Dateisystem",
             "filesWillBeUploadedTo": "Dateien werden hochgeladen",
             "folderCreated": "Ordner erstellt",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Pfad kopieren",
             "downloadFile": "Datei herunterladen",
-            "editing": "Bearbeiten",
             "fileContents": "Dateiinhalte",
             "filePreview": "Dateivorschau",
             "group": "Gruppe",

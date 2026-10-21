@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Falha ao ler o arquivo: {{message}}",
             "failedToRename": "Falha ao renomear: {{message}}",
             "failedToSave": "Falha ao salvar: {{message}}",
-            "fileSaved": "Arquivo salvo",
             "fileSystem": "Sistema de arquivos",
             "filesWillBeUploadedTo": "Os arquivos serão enviados para",
             "folderCreated": "Pasta criada",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Copiar caminho",
             "downloadFile": "Baixar arquivo",
-            "editing": "Editando",
             "fileContents": "Conteúdo do arquivo",
             "filePreview": "Visualização do arquivo",
             "group": "Grupo",

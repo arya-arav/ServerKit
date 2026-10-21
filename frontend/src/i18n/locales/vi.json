@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Không đọc được tệp: {{message}}",
             "failedToRename": "Không đổi tên được: {{message}}",
             "failedToSave": "Không lưu được: {{message}}",
-            "fileSaved": "Đã lưu tệp",
             "fileSystem": "Hệ thống tệp",
             "filesWillBeUploadedTo": "Các tập tin sẽ được tải lên",
             "folderCreated": "Đã tạo thư mục",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Sao chép đường dẫn",
             "downloadFile": "Tải tập tin xuống",
-            "editing": "Đang chỉnh sửa",
             "fileContents": "Nội dung tập tin",
             "filePreview": "Xem trước tệp",
             "group": "Nhóm",

@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Nie udało się odczytać pliku: {{message}}",
             "failedToRename": "Nie udało się zmienić nazwy: {{message}}",
             "failedToSave": "Nie udało się zapisać: {{message}}",
-            "fileSaved": "Plik został zapisany",
             "fileSystem": "System plików",
             "filesWillBeUploadedTo": "Pliki zostaną przesłane do",
             "folderCreated": "Folder został utworzony",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Skopiuj ścieżkę",
             "downloadFile": "Pobierz plik",
-            "editing": "Edycja",
             "fileContents": "Zawartość pliku",
             "filePreview": "Podgląd pliku",
             "group": "Grupa",

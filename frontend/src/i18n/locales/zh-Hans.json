@@ -2736,7 +2736,6 @@
             "failedToReadFile": "无法读取文件：{{message}}",
             "failedToRename": "重命名失败：{{message}}",
             "failedToSave": "保存失败：{{message}}",
-            "fileSaved": "文件已保存",
             "fileSystem": "文件系统",
             "filesWillBeUploadedTo": "文件将上传至",
             "folderCreated": "文件夹已创建",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "复制路径",
             "downloadFile": "下载文件",
-            "editing": "编辑中",
             "fileContents": "文件内容",
             "filePreview": "文件预览",
             "group": "组",

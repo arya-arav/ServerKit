@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/useToast.js';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -20,6 +20,8 @@ import FolderTree from '../components/file-manager/FolderTree';
 import FileCard from '../components/file-manager/FileCard';
 import FileRow from '../components/file-manager/FileRow';
 import PreviewDrawer from '../components/file-manager/PreviewDrawer';
+// CodeMirror loads only when a file is opened for editing (fork: arya-arav/ServerKit).
+const EditorWorkspace = lazy(() => import('../components/file-manager/editor/EditorWorkspace'));
 import ContextMenu from '../components/file-manager/ContextMenu';
 import { NamePromptModal, PermissionsModal } from '../components/file-manager/FileDialogs';
 import ServerPicker from '../components/ServerPicker';
@@ -242,7 +244,15 @@ function FileManager() {
     // ─── preview ─────────────────────────────────────────
     const [previewFile, setPreviewFile] = useState(null);
     const [fileContent, setFileContent] = useState('');
-    const [editing, setEditing] = useState(false);
+
+    // ─── code editor (fork: arya-arav/ServerKit) ─────────
+    // Open files as tabs: { path, name, content (as saved), draft, version, readOnly }.
+    const [editorTabs, setEditorTabs] = useState([]);
+    const [editorActive, setEditorActive] = useState(null);
+    const [editorVisible, setEditorVisible] = useState(false);
+    const [savingPaths, setSavingPaths] = useState(new Set());
+    const editorTabsRef = useRef(editorTabs);
+    editorTabsRef.current = editorTabs;
 
     // ─── modals ──────────────────────────────────────────
     // { kind: 'newFolder' } | { kind: 'rename', entry } | { kind: 'permissions', entry } | null
@@ -332,12 +342,12 @@ function FileManager() {
             }
             return api.readFile(path);
         },
-        write: async (path, content) => {
+        write: async (path, content, expectedVersion = null) => {
             if (isS3) return api.writeS3(path, content);
             if (isRemote) {
                 return unwrapAgentData(await api.writeRemoteFile(target.server_id, path, content));
             }
-            return api.writeFile(path, content);
+            return api.writeFile(path, content, true, expectedVersion);
         },
         del: async (path) => (isS3 ? api.deleteS3(path) : api.deleteFile(path)),
         download: (entry) => (isS3 ? api.downloadS3File(entry.path) : api.downloadFile(entry.path)),
@@ -509,7 +519,6 @@ function FileManager() {
     // ─── navigation ──────────────────────────────────────
     const navigateTo = (path) => {
         setPreviewFile(null);
-        setEditing(false);
         setCurrentPath(path);
     };
 
@@ -534,7 +543,6 @@ function FileManager() {
             navigateTo(entry.path);
         } else {
             setPreviewFile(entry);
-            setEditing(false);
             if (entry.is_editable) {
                 try {
                     const data = await fileApi.read(entry.path);
@@ -574,19 +582,121 @@ function FileManager() {
         setSelectMode(false);
     };
 
-    // ─── ops ─────────────────────────────────────────────
-    const handleSaveFile = async () => {
-        if (!previewFile) return;
+    // ─── code editor ─────────────────────────────────────
+    const openInEditor = async (entry) => {
+        if (!entry || entry.is_dir) return;
+        if (editorTabsRef.current.some((tab) => tab.path === entry.path)) {
+            setEditorActive(entry.path);
+            setEditorVisible(true);
+            return;
+        }
         try {
-            await fileApi.write(previewFile.path, fileContent);
-            toast.success(t('app.fileManager.fileSaved', 'File saved'));
-            setEditing(false);
-            loadDirectory(currentPath);
+            const data = await fileApi.read(entry.path);
+            const readOnly = !isS3 && !isRemote && Boolean(entry.read_only || data.read_only);
+            setEditorTabs((tabs) => (tabs.some((tab) => tab.path === entry.path) ? tabs : [...tabs, {
+                path: entry.path, name: entry.name, content: data.content ?? '', draft: data.content ?? '',
+                version: data.version || null, readOnly,
+            }]));
+            setEditorActive(entry.path);
+            setEditorVisible(true);
         } catch (error) {
-            toast.error(t('app.fileManager.failedToSave', "Couldn't save. {{message}}", { message: errorReason(error) }));
+            toast.error(t('app.fileManager.failedToReadFile', "Couldn't read the file. {{message}}", { message: errorReason(error) }));
         }
     };
 
+    const updateTab = (path, patch) => setEditorTabs((tabs) => tabs.map((tab) => (
+        tab.path === path ? { ...tab, ...patch } : tab)));
+
+    const changeDraft = useCallback((path, draft) => updateTab(path, { draft }), []);
+
+    const saveTab = useCallback(async (path, { force = false } = {}) => {
+        const tab = editorTabsRef.current.find((x) => x.path === path);
+        if (!tab || tab.readOnly || tab.draft === tab.content) return;
+        setSavingPaths((s) => new Set(s).add(path));
+        const text = tab.draft;
+        try {
+            const res = await fileApi.write(path, text, force ? null : tab.version);
+            updateTab(path, { content: text, version: res?.version || tab.version });
+            toast.success(t('app.fileEditor.savedName', 'Saved {{name}}', { name: tab.name }));
+            if (previewFile?.path === path) setFileContent(text);
+        } catch (error) {
+            if (error?.code === 'file_changed') {
+                setConfirmDialog({
+                    title: t('app.fileEditor.changedTitle', 'File changed on the server'),
+                    message: t('app.fileEditor.changedMessage',
+                        '{{name}} was changed on the server after you opened it. Overwrite it with your version? Cancel keeps the server\'s version; use Reload to see it.',
+                        { name: tab.name }),
+                    confirmText: t('app.fileEditor.overwrite', 'Overwrite'),
+                    variant: 'danger',
+                    onConfirm: () => { setConfirmDialog(null); saveTab(path, { force: true }); },
+                    onCancel: () => setConfirmDialog(null),
+                });
+            } else {
+                toast.error(t('app.fileManager.failedToSave', "Couldn't save. {{message}}", { message: errorReason(error) }));
+            }
+        } finally {
+            setSavingPaths((s) => { const next = new Set(s); next.delete(path); return next; });
+        }
+    }, [fileApi, previewFile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const saveAllTabs = () => editorTabsRef.current
+        .filter((tab) => tab.draft !== tab.content && !tab.readOnly)
+        .forEach((tab) => saveTab(tab.path));
+
+    const reloadTab = (path) => {
+        const tab = editorTabsRef.current.find((x) => x.path === path);
+        if (!tab) return;
+        const reload = async () => {
+            try {
+                const data = await fileApi.read(path);
+                updateTab(path, { content: data.content ?? '', draft: data.content ?? '', version: data.version || null });
+            } catch (error) {
+                toast.error(t('app.fileManager.failedToReadFile', "Couldn't read the file. {{message}}", { message: errorReason(error) }));
+            }
+        };
+        if (tab.draft === tab.content) { reload(); return; }
+        setConfirmDialog({
+            title: t('app.fileEditor.reloadTitle', 'Reload from the server'),
+            message: t('app.fileEditor.reloadMessage', 'Discard your unsaved changes to {{name}} and load the version on the server?', { name: tab.name }),
+            confirmText: t('app.fileEditor.discardReload', 'Discard and reload'),
+            variant: 'danger',
+            onConfirm: () => { setConfirmDialog(null); reload(); },
+            onCancel: () => setConfirmDialog(null),
+        });
+    };
+
+    const closeTab = (path) => {
+        const tab = editorTabsRef.current.find((x) => x.path === path);
+        const close = () => {
+            setEditorTabs((tabs) => {
+                const rest = tabs.filter((x) => x.path !== path);
+                if (rest.length === 0) setEditorVisible(false);
+                setEditorActive((current) => (current === path ? rest[rest.length - 1]?.path || null : current));
+                return rest;
+            });
+        };
+        if (!tab || tab.draft === tab.content) { close(); return; }
+        setConfirmDialog({
+            title: t('app.fileEditor.unsavedTitle', 'Unsaved changes'),
+            message: t('app.fileEditor.unsavedMessage', 'Close {{name}} without saving? Your changes will be lost.', { name: tab.name }),
+            confirmText: t('app.fileEditor.closeWithoutSaving', 'Close without saving'),
+            variant: 'danger',
+            onConfirm: () => { setConfirmDialog(null); close(); },
+            onCancel: () => setConfirmDialog(null),
+        });
+    };
+
+    const editorDirty = editorTabs.some((tab) => tab.draft !== tab.content);
+
+    // Leaving or reloading the page with unsaved edits asks first.
+    useEffect(() => {
+        if (!editorDirty) return undefined;
+        const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [editorDirty]);
+
+    // ─── ops ─────────────────────────────────────────────
     const handleCreateFolder = async (name) => {
         if (remoteGuard('create folder')) return;
         try {
@@ -824,7 +934,11 @@ function FileManager() {
     // ─── shortcuts ───────────────────────────────────────
     useEffect(() => {
         const handler = (e) => {
-            const inInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+            // The code editor is a contenteditable, not an input: without these
+            // checks Backspace there went up a folder and Delete deleted files.
+            if (editorVisible) return;
+            const inInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName)
+                || e.target.isContentEditable;
             if (inInput) return;
             if (e.key === 'Escape') {
                 if (contextMenu) setContextMenu(null);
@@ -845,7 +959,7 @@ function FileManager() {
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [selectedEntries, sortedFiltered, contextMenu, previewFile, parentPath, selectedPaths]); // eslint-disable-line
+    }, [selectedEntries, sortedFiltered, contextMenu, previewFile, parentPath, selectedPaths, editorVisible]); // eslint-disable-line
 
     // ─── close popovers ──────────────────────────────────
     useEffect(() => {
@@ -1378,12 +1492,8 @@ function FileManager() {
                     isS3={isS3}
                     file={previewFile}
                     fileContent={fileContent}
-                    setFileContent={setFileContent}
-                    editing={editing}
-                    onStartEdit={() => setEditing(true)}
-                    onCancelEdit={() => setEditing(false)}
-                    onSave={handleSaveFile}
-                    onClose={() => { setPreviewFile(null); setEditing(false); }}
+                    onStartEdit={() => openInEditor(previewFile)}
+                    onClose={() => setPreviewFile(null)}
                     onDownload={(e) => fileApi.download(e)}
                     onRename={openRenameModal}
                     onPermissions={openPermissionsModal}
@@ -1391,6 +1501,23 @@ function FileManager() {
                     onDelete={(e) => handleDelete(e)}
                 />
             </div>
+
+            {editorVisible && editorTabs.length > 0 && (
+                <Suspense fallback={<div className="fm-editor fm-editor--loading">{t('app.fileEditor.loading', 'Loading the editor…')}</div>}>
+                    <EditorWorkspace
+                        tabs={editorTabs}
+                        activePath={editorActive}
+                        savingPaths={savingPaths}
+                        onActivate={setEditorActive}
+                        onChange={changeDraft}
+                        onSave={saveTab}
+                        onSaveAll={saveAllTabs}
+                        onReload={reloadTab}
+                        onCloseTab={closeTab}
+                        onExit={() => setEditorVisible(false)}
+                    />
+                </Suspense>
+            )}
 
             <div className="status-bar">
                 <div className="status-bar-left">
@@ -1434,6 +1561,7 @@ function FileManager() {
                 selectionCount={selectedEntries.length}
                 onClose={() => setContextMenu(null)}
                 onOpen={handleOpen}
+                onEdit={openInEditor}
                 onDownload={(e) => fileApi.download(e)}
                 onRename={openRenameModal}
                 onPermissions={openPermissionsModal}

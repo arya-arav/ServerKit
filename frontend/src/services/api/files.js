@@ -14,11 +14,12 @@ export async function readFile(path) {
     return this.request(`/files/read?path=${encodeURIComponent(path)}`);
 }
 
-export async function writeFile(path, content, createBackup = true) {
-    return this.request('/files/write', {
-        method: 'POST',
-        body: { path, content, create_backup: createBackup }
-    });
+// expectedVersion (from readFile) makes the server refuse with 409
+// `file_changed` when the file was edited on disk meanwhile. Fork: arya-arav/ServerKit.
+export async function writeFile(path, content, createBackup = true, expectedVersion = null) {
+    const body = { path, content, create_backup: createBackup };
+    if (expectedVersion) body.expected_version = expectedVersion;
+    return this.request('/files/write', { method: 'POST', body });
 }
 
 export async function createFile(path, content = '') {

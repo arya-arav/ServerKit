@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Échec de la lecture du fichier : {{message}}",
             "failedToRename": "Échec du changement de nom : {{message}}",
             "failedToSave": "Échec de l'enregistrement : {{message}}",
-            "fileSaved": "Fichier enregistré",
             "fileSystem": "Système de fichiers",
             "filesWillBeUploadedTo": "Les fichiers seront téléchargés vers",
             "folderCreated": "Dossier créé",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Copier le chemin",
             "downloadFile": "Télécharger le fichier",
-            "editing": "Modification",
             "fileContents": "Contenu du fichier",
             "filePreview": "Aperçu du fichier",
             "group": "Groupe",

@@ -2736,7 +2736,6 @@
             "failedToReadFile": "ফাইল পড়তে ব্যর্থ হয়েছে: {{message}}",
             "failedToRename": "নাম পরিবর্তন করতে ব্যর্থ হয়েছে: {{message}}",
             "failedToSave": "সংরক্ষণ করতে ব্যর্থ হয়েছে: {{message}}",
-            "fileSaved": "ফাইল সংরক্ষিত",
             "fileSystem": "ফাইল সিস্টেম",
             "filesWillBeUploadedTo": "ফাইল আপলোড করা হবে",
             "folderCreated": "ফোল্ডার তৈরি করা হয়েছে",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "পাথ কপি করুন",
             "downloadFile": "ফাইল ডাউনলোড করুন",
-            "editing": "সম্পাদনা",
             "fileContents": "ফাইল বিষয়বস্তু",
             "filePreview": "ফাইলের পূর্বরূপ",
             "group": "গ্রুপ",

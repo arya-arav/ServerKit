@@ -284,7 +284,10 @@ class FileService:
                     'content': content,
                     'encoding': 'utf-8',
                     'size': size,
-                    'is_binary': False
+                    'is_binary': False,
+                    # Sent back on save so an edit made on the server meanwhile
+                    # is not overwritten unseen (write_file expected_version).
+                    'version': cls._version(path),
                 }
             except UnicodeDecodeError as e:
                 raise ValidationError('Binary file cannot be edited',
@@ -295,16 +298,57 @@ class FileService:
         except OSError as e:
             raise ValidationError(str(e), code='filesystem_error') from e
 
+    @staticmethod
+    def _version(path: str) -> str:
+        """A file's version for edit-conflict checks: its mtime in ns."""
+        return str(os.stat(path).st_mtime_ns)
+
+    # Copies taken before each save. Kept out of the edited tree: upstream
+    # wrote <file>.bak next to the file, so in a web root wp-config.php.bak or
+    # index.php.bak were served as plain text. Fork: arya-arav/ServerKit.
+    EDIT_BACKUP_DIR = os.path.join(paths.SERVERKIT_BACKUP_DIR, 'file-edits')
+    EDIT_BACKUPS_KEPT = 10
+
     @classmethod
-    def write_file(cls, path: str, content: str, create_backup: bool = True) -> Dict:
-        """Write content to file."""
+    def _backup_before_edit(cls, path: str) -> str:
+        """Copy *path* into EDIT_BACKUP_DIR; keep the newest EDIT_BACKUPS_KEPT."""
+        real = os.path.realpath(path)
+        key = hashlib.sha256(real.encode()).hexdigest()[:12]
+        name = os.path.basename(real)
+        os.makedirs(cls.EDIT_BACKUP_DIR, mode=0o700, exist_ok=True)
+        os.chmod(cls.EDIT_BACKUP_DIR, 0o700)
+        stamp = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+        backup_path = os.path.join(cls.EDIT_BACKUP_DIR, f'{key}-{stamp}-{name}')
+        shutil.copy2(real, backup_path)
+        os.chmod(backup_path, 0o600)
+        mine = sorted(f for f in os.listdir(cls.EDIT_BACKUP_DIR) if f.startswith(f'{key}-'))
+        for old in mine[:-cls.EDIT_BACKUPS_KEPT]:
+            try:
+                os.remove(os.path.join(cls.EDIT_BACKUP_DIR, old))
+            except OSError:
+                pass
+        return backup_path
+
+    @classmethod
+    def write_file(cls, path: str, content: str, create_backup: bool = True,
+                   expected_version: Optional[str] = None) -> Dict:
+        """Write content to file.
+
+        With *expected_version* (from read_file), refuse when the file changed
+        on disk since it was read, so a concurrent edit is never lost silently.
+        """
         cls._require_writable(path)
 
         try:
-            # Create backup if file exists
-            if create_backup and os.path.exists(path):
-                backup_path = f"{path}.bak"
-                shutil.copy2(path, backup_path)
+            exists = os.path.exists(path)
+            if expected_version and exists and cls._version(path) != str(expected_version):
+                raise ConflictError(
+                    'The file changed on the server since you opened it.',
+                    code='file_changed', details={'version': cls._version(path)})
+
+            backup_path = None
+            if create_backup and exists:
+                backup_path = cls._backup_before_edit(path)
 
             # Write file
             with open(path, 'w', encoding='utf-8') as f:
@@ -312,7 +356,9 @@ class FileService:
 
             return {
                 'path': path,
-                'size': len(content.encode('utf-8'))
+                'size': len(content.encode('utf-8')),
+                'version': cls._version(path),
+                'backup_path': backup_path,
             }
         except PermissionError as e:
             raise PermissionDeniedError('Permission denied') from e

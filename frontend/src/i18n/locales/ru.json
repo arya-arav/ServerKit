@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Не удалось прочитать файл: {{message}}",
             "failedToRename": "Не удалось переименовать: {{message}}",
             "failedToSave": "Не удалось сохранить: {{message}}",
-            "fileSaved": "Файл сохранен.",
             "fileSystem": "Файловая система",
             "filesWillBeUploadedTo": "Файлы будут загружены в",
             "folderCreated": "Папка создана",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Копировать путь",
             "downloadFile": "Скачать файл",
-            "editing": "Редактирование",
             "fileContents": "Содержимое файла",
             "filePreview": "Предварительный просмотр файла",
             "group": "Группа",

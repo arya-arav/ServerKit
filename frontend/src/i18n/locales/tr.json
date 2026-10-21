@@ -2736,7 +2736,6 @@
             "failedToReadFile": "Dosya okunamadı: {{message}}",
             "failedToRename": "Yeniden adlandırılamadı: {{message}}",
             "failedToSave": "Kaydedilemedi: {{message}}",
-            "fileSaved": "Dosya kaydedildi",
             "fileSystem": "Dosya sistemi",
             "filesWillBeUploadedTo": "Dosyalar şuraya yüklenecek:",
             "folderCreated": "Klasör oluşturuldu",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "Yolu kopyala",
             "downloadFile": "Dosyayı İndir",
-            "editing": "Düzenleniyor",
             "fileContents": "Dosya içeriği",
             "filePreview": "Dosya önizlemesi",
             "group": "Grup",

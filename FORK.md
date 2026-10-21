@@ -97,6 +97,14 @@
   - **All at once:** once nothing is unread, the header's "Mark all read" becomes "Clear all".
   - **History is kept:** removed notifications leave only the user's bell and inbox; the admin delivery log keeps them.
   - Tests: the dismiss/clear cases in `backend/tests/test_notification_bus.py`.
+- **File manager code editor** (`components/file-manager/editor/`: `CodeEditor.jsx`, `EditorWorkspace.jsx`, `languages.js`; CodeMirror 6, lazy-loaded). Upstream edited files in a plain textarea.
+  - **Editor:** open files show as tabs over the file list (Edit in the preview pane or the right-click menu). Syntax highlighting covers PHP, JS/TS, Python, HTML, CSS, JSON, YAML, Markdown, XML, SQL, nginx, shell, Dockerfile, .env/ini and TOML, with colours from theme tokens.
+  - **Keys:** Ctrl+S saves, Ctrl+F finds and replaces, and there are Save all, Reload and line-wrap buttons, plus a line/column status bar.
+  - **No lost work:** you're asked before closing a tab or the page with unsaved changes.
+  - **Edit conflicts** (`FileService.write_file(expected_version)`): reads return the file's mtime as `version`, and a save against an older version is refused with 409 `file_changed`. The editor then offers Overwrite or Reload instead of silently overwriting an edit made on the server.
+  - **Backups out of the web root** (`FileService._backup_before_edit`): upstream saved `<file>.bak` next to the file, so a web root served `wp-config.php.bak` or `index.php.bak` as plain text. Pre-save copies now go to `/var/backups/serverkit/file-edits/` (700/600), with the newest 10 kept per file.
+  - **Shortcut fix:** the file manager's own shortcuts ignore contenteditable fields and are off while the editor is open. Without that, Backspace in the editor went up a folder and Delete deleted the selected files.
+  - Tests: `backend/tests/test_file_editor_saves.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 

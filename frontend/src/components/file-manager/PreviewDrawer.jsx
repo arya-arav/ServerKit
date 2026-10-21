@@ -15,11 +15,7 @@ const MAX_HIGHLIGHT_LINES = 4000;
 export default function PreviewDrawer({
     file,
     fileContent,
-    setFileContent,
-    editing,
     onStartEdit,
-    onCancelEdit,
-    onSave,
     onClose,
     onDownload,
     onRename,
@@ -126,33 +122,15 @@ export default function PreviewDrawer({
                     ) : file.is_editable ? (
                         <div className="editor-wrap">
                             <div className="editor-toolbar">
-                                <span className="editor-status">{editing ? t('app.previewDrawer.editing', 'Editing') : t('app.previewDrawer.readOnly', 'Read-only')}</span>
+                                <span className="editor-status">{t('app.previewDrawer.readOnly', 'Read-only')}</span>
                                 <div className="editor-buttons">
-                                    {!editing ? (
-                                        <Button size="sm" onClick={onStartEdit}>
-                                            <Edit3 size={14} /> {t('common.actions.edit', 'Edit')}
-                                        </Button>
-                                    ) : (
-                                        <>
-                                            <Button variant="outline" size="sm" onClick={onCancelEdit}>
-                                                {t('common.actions.cancel', 'Cancel')}
-                                            </Button>
-                                            <Button size="sm" onClick={onSave}>{t('common.actions.save', 'Save')}</Button>
-                                        </>
-                                    )}
+                                    {/* Opens the code editor (tabs, Ctrl+S, find/replace). Fork. */}
+                                    <Button size="sm" onClick={onStartEdit}>
+                                        <Edit3 size={14} /> {t('common.actions.edit', 'Edit')}
+                                    </Button>
                                 </div>
                             </div>
                             {(() => {
-                                if (editing) {
-                                    return (
-                                        <textarea
-                                            className="file-editor"
-                                            value={fileContent}
-                                            onChange={(e) => setFileContent(e.target.value)}
-                                            spellCheck={false}
-                                        />
-                                    );
-                                }
                                 const lines = (fileContent ?? '').split('\n');
                                 if (lines.length > MAX_HIGHLIGHT_LINES) {
                                     return (

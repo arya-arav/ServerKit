@@ -2736,7 +2736,6 @@
             "failedToReadFile": "فشل في قراءة الملف: {{message}}",
             "failedToRename": "فشلت إعادة التسمية: {{message}}",
             "failedToSave": "فشل الحفظ: {{message}}",
-            "fileSaved": "تم حفظ الملف",
             "fileSystem": "نظام الملفات",
             "filesWillBeUploadedTo": "سيتم رفع الملفات على",
             "folderCreated": "تم إنشاء المجلد",
@@ -4407,7 +4406,6 @@
         "previewDrawer": {
             "copyPath": "نسخ المسار",
             "downloadFile": "تنزيل الملف",
-            "editing": "تحرير",
             "fileContents": "محتويات الملف",
             "filePreview": "معاينة الملف",
             "group": "مجموعة",

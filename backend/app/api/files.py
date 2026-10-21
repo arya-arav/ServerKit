@@ -77,7 +77,8 @@ def write_file():
     if content is None:
         raise ValidationError('Content is required')
 
-    result = FileService.write_file(path, content, create_backup=create_backup)
+    result = FileService.write_file(path, content, create_backup=create_backup,
+                                    expected_version=data.get('expected_version'))
 
     return jsonify({'success': True, **result}), 200
 

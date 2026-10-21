@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import {
-    Folder, Eye, Download, Edit3, Lock, Copy, Trash2,
+    Folder, Eye, Download, Edit3, Lock, Copy, Trash2, FileCode,
 } from 'lucide-react';
 import { Button as SharedButton } from '@/components/ui/button';
 
@@ -9,6 +9,7 @@ export default function ContextMenu({
     selectionCount,        // total items selected
     onClose,
     onOpen,
+    onEdit,                // open an editable file in the code editor (fork)
     onDownload,
     onRename,
     onPermissions,
@@ -30,6 +31,11 @@ export default function ContextMenu({
                 {entry.is_dir ? <Folder size={14} /> : <Eye size={14} />}
                 {entry.is_dir ? t('common.actions.open', 'Open') : t('app.contextMenu.preview', 'Preview')}
             </SharedButton>
+            {!entry.is_dir && entry.is_editable && onEdit && (
+                <SharedButton variant="unstyled" type="button" onClick={() => { onEdit(entry); onClose(); }}>
+                    <FileCode size={14} /> {t('app.contextMenu.edit', 'Edit')}
+                </SharedButton>
+            )}
             {!entry.is_dir && (
                 <SharedButton variant="unstyled" type="button" onClick={() => { onDownload(entry); onClose(); }}>
                     <Download size={14} /> {t('common.actions.download', 'Download')}
