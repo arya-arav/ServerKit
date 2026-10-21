@@ -246,7 +246,7 @@ def test_job_routes_hide_other_jobs(client, auth_headers, app):
         unrelated = JobService.enqueue('monitoring.speedtest.run', payload={}).id
     for job_id in (other, unrelated):
         assert client.get(f'/api/v1/files/jobs/{job_id}', headers=auth_headers).status_code == 404
-        assert client.get(f'/api/v1/files/jobs/{job_id}/download', headers=auth_headers).status_code == 404
+        assert client.post(f'/api/v1/files/jobs/{job_id}/download-link', headers=auth_headers).status_code == 404
 
 
 def test_extract_route_validates_before_queueing(client, auth_headers, site):

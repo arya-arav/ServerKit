@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "여기에 파일을 놓거나 위의 버튼을 사용하여 새로운 것을 만드세요.",
             "dropToUpload": "업로드하려면 드롭하세요.",
             "failed": "실패: {{value}}",
-            "failed2": "실패: {{message}}",
             "failedToCreateFolder": "폴더 생성 실패: {{message}}",
             "failedToLoadDirectory": "디렉터리를 로드하지 못했습니다: {{message}}",
             "failedToReadFile": "파일을 읽지 못했습니다: {{message}}",

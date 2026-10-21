@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Déposez des fichiers ici ou utilisez les boutons ci-dessus pour créer quelque chose de nouveau.",
             "dropToUpload": "Déposer pour télécharger",
             "failed": "Échec : {{value}}",
-            "failed2": "Échec : {{message}}",
             "failedToCreateFolder": "Échec de la création du dossier : {{message}}",
             "failedToLoadDirectory": "Échec du chargement du répertoire : {{message}}",
             "failedToReadFile": "Échec de la lecture du fichier : {{message}}",

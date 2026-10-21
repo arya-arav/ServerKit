@@ -324,6 +324,8 @@ function FileManager() {
     const [contextMenu, setContextMenu] = useState(null);
 
     const toast = useToast();
+    // The page's one shared error toast for actions without their own flow.
+    const reportError = (message, error) => toastError(toast, message, error);
 
     useEffect(() => {
         const pathFromUrl = searchParams.get('path') || '/home';
@@ -375,6 +377,10 @@ function FileManager() {
         del: async (path) => (isS3 ? api.deleteS3(path) : api.deleteFile(path)),
         download: (entry) => (isS3 ? api.downloadS3File(entry.path) : api.downloadFile(entry.path)),
     }), [isRemote, isS3, target]);
+
+    // Every download button goes through here, so a failed link shows up.
+    const downloadEntry = (entry) => Promise.resolve(fileApi.download(entry))
+        .catch((error) => reportError(t('app.fileManager.couldNotDownload', "Couldn't download it."), error));
 
     const remoteGuard = useCallback((op) => {
         if (isRemote && !REMOTE_SUPPORTED.has(op)) {
@@ -804,7 +810,7 @@ function FileManager() {
             closeDialog();
             loadDirectory(currentPath);
         } catch (error) {
-            toast.error(t('app.fileManager.failed2', "Couldn't do that. {{message}}", { message: errorReason(error) }));
+            reportError(t('app.fileManager.couldNotDoThat', "Couldn't do that."), error);
         }
     };
 
@@ -1262,7 +1268,7 @@ function FileManager() {
     const rowOpen = useStableHandler(handleOpen);
     const rowToggleSelect = useStableHandler(handleToggleSelect);
     const rowContext = useStableHandler(openContextMenu);
-    const rowDownload = useStableHandler((entry) => fileApi.download(entry));
+    const rowDownload = useStableHandler((entry) => downloadEntry(entry));
     const rowRename = useStableHandler(openRenameModal);
     const rowPermissions = useStableHandler(openPermissionsModal);
     const rowDelete = useStableHandler((entry) => handleDelete(entry));
@@ -1282,9 +1288,9 @@ function FileManager() {
     const copyPathToClipboard = (path) => copyText(path);
 
     const downloadSelected = () => {
-        if (selectedEntries.length === 1 && !selectedEntries[0].is_dir) fileApi.download(selectedEntries[0]);
+        if (selectedEntries.length === 1 && !selectedEntries[0].is_dir) downloadEntry(selectedEntries[0]);
         else if (transfersEnabled) handleDownloadZip(selectedEntries);
-        else selectedEntries.filter((e) => !e.is_dir).forEach((e) => fileApi.download(e));
+        else selectedEntries.filter((e) => !e.is_dir).forEach((e) => downloadEntry(e));
     };
 
     const getDiskColor = (percent) => {
@@ -1852,7 +1858,7 @@ function FileManager() {
                     fileContent={fileContent}
                     onStartEdit={() => openInEditor(previewFile)}
                     onClose={() => setPreviewFile(null)}
-                    onDownload={(e) => fileApi.download(e)}
+                    onDownload={(e) => downloadEntry(e)}
                     onRename={openRenameModal}
                     onPermissions={openPermissionsModal}
                     onCopyPath={copyPathToClipboard}
@@ -1920,7 +1926,7 @@ function FileManager() {
                 onClose={() => setContextMenu(null)}
                 onOpen={handleOpen}
                 onEdit={openInEditor}
-                onDownload={(e) => fileApi.download(e)}
+                onDownload={(e) => downloadEntry(e)}
                 onRename={openRenameModal}
                 onPermissions={openPermissionsModal}
                 onCopyPath={copyPathToClipboard}

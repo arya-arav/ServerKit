@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Legen Sie Dateien hier ab oder verwenden Sie die Schaltflächen oben, um etwas Neues zu erstellen.",
             "dropToUpload": "Zum Hochladen ablegen",
             "failed": "Fehlgeschlagen: {{value}}",
-            "failed2": "Fehlgeschlagen: {{message}}",
             "failedToCreateFolder": "Ordner konnte nicht erstellt werden: {{message}}",
             "failedToLoadDirectory": "Verzeichnis konnte nicht geladen werden: {{message}}",
             "failedToReadFile": "Datei konnte nicht gelesen werden: {{message}}",

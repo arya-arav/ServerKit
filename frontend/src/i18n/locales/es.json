@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Arrastra archivos aquí o usa los botones de arriba para crear algo nuevo.",
             "dropToUpload": "Suelta para subir",
             "failed": "Error: {{value}}",
-            "failed2": "Error: {{message}}",
             "failedToCreateFolder": "No se pudo crear la carpeta: {{message}}",
             "failedToLoadDirectory": "No se pudo cargar el directorio: {{message}}",
             "failedToReadFile": "No se pudo leer el archivo: {{message}}",

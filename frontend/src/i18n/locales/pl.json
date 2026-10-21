@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Upuść pliki tutaj lub użyj powyższych przycisków, aby utworzyć coś nowego.",
             "dropToUpload": "Upuść, aby przesłać",
             "failed": "Niepowodzenie: {{value}}",
-            "failed2": "Niepowodzenie: {{message}}",
             "failedToCreateFolder": "Nie udało się utworzyć folderu: {{message}}",
             "failedToLoadDirectory": "Nie udało się załadować katalogu: {{message}}",
             "failedToReadFile": "Nie udało się odczytać pliku: {{message}}",

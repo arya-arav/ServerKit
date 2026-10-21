@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Trascina i file qui o usa i pulsanti qui sopra per creare qualcosa di nuovo.",
             "dropToUpload": "Rilascia per caricare",
             "failed": "Non riuscito: {{value}}",
-            "failed2": "Non riuscito: {{message}}",
             "failedToCreateFolder": "Impossibile creare la cartella: {{message}}",
             "failedToLoadDirectory": "Impossibile caricare la directory: {{message}}",
             "failedToReadFile": "Impossibile leggere il file: {{message}}",

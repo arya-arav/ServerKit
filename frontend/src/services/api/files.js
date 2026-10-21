@@ -107,10 +107,20 @@ export async function getFileTypeBreakdown(path = '/home', maxDepth = 3) {
     return this.request(`/files/type-breakdown?${params}`);
 }
 
+// Browser downloads use a one-time ticket (fork): a navigation can't send the
+// Authorization header, and the login token must never go in a URL.
+function startDownload(url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
 export async function downloadFile(path) {
-    const token = this.getToken();
-    const url = `${this.baseUrl}/files/download?path=${encodeURIComponent(path)}`;
-    window.open(`${url}&token=${encodeURIComponent(token)}`, '_blank');
+    const { ticket } = await this.request('/files/download-link', { method: 'POST', body: { path } });
+    startDownload(`${this.baseUrl}/files/fetch/${encodeURIComponent(ticket)}`);
 }
 
 export async function getFileBlob(path) {
@@ -555,7 +565,6 @@ export async function getFileJob(jobId) {
 }
 
 export async function downloadFileJob(jobId) {
-    const token = this.getToken();
-    const url = `${this.baseUrl}/files/jobs/${encodeURIComponent(jobId)}/download`;
-    window.open(`${url}?token=${encodeURIComponent(token)}`, '_blank');
+    const { ticket } = await this.request(`/files/jobs/${encodeURIComponent(jobId)}/download-link`, { method: 'POST' });
+    startDownload(`${this.baseUrl}/files/fetch/${encodeURIComponent(ticket)}`);
 }

@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "將檔案拖放到此處，或使用上面的按鈕建立新內容。",
             "dropToUpload": "拖放即可上傳",
             "failed": "失敗：{{value}}",
-            "failed2": "失敗：{{message}}",
             "failedToCreateFolder": "建立資料夾失敗：{{message}}",
             "failedToLoadDirectory": "無法載入目錄：{{message}}",
             "failedToReadFile": "讀取檔案失敗：{{message}}",

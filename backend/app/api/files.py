@@ -478,18 +478,68 @@ def get_archive_job(job_id):
                     'result': job.get_result(), 'error': job.error_message}), 200
 
 
-@files_bp.route('/jobs/<job_id>/download', methods=['GET'])
-@permission_required('files', 'read')
-def download_archive_job(job_id):
-    """The zip a download job built. Removed once sent."""
-    job = _own_archive_job(job_id)
+def _ready_download(job):
     path = ArchiveService.download_path(job.id) if job.kind == archive_service.DOWNLOAD_JOB_KIND else None
     if job.status != 'succeeded' or not path:
         raise NotFoundError('The download is not ready or has expired')
-    name = (job.get_result() or {}).get('download_name') or 'files.zip'
-    response = send_file(path, as_attachment=True, download_name=name)
-    response.call_on_close(lambda: os.path.exists(path) and os.remove(path))
-    return response
+    return path
+
+
+@files_bp.route('/jobs/<job_id>/download-link', methods=['POST'])
+@permission_required('files', 'read')
+def archive_job_download_link(job_id):
+    """A one-time link to the zip a download job built."""
+    from flask_jwt_extended import get_jwt_identity
+    from ..services import download_ticket_service
+    job = _own_archive_job(job_id)
+    _ready_download(job)
+    return jsonify({'ticket': download_ticket_service.issue(get_jwt_identity(), 'job', job.id)}), 200
+
+
+# ── Downloads by one-time link (fork) ──
+# A browser download can't send the Authorization header, and a login token
+# in the URL ends up in logs (upstream put it there, and nothing read it, so
+# every download 401'd). The page gets a 60-second single-use ticket instead.
+
+@files_bp.route('/download-link', methods=['POST'])
+@permission_required('files', 'read')
+def file_download_link():
+    """A one-time link for downloading one file."""
+    from flask_jwt_extended import get_jwt_identity
+    from ..services import download_ticket_service
+    path = json_object().get('path')
+    if not path:
+        raise ValidationError('Path is required')
+    if not FileService.is_path_allowed(path):
+        raise permission_denied()
+    if not os.path.isfile(path):
+        raise NotFoundError('File not found')
+    return jsonify({'ticket': download_ticket_service.issue(get_jwt_identity(), 'path', os.path.abspath(path))}), 200
+
+
+@files_bp.route('/fetch/<ticket>', methods=['GET'])
+def fetch_download(ticket):
+    """Serve a one-time download. Public on purpose: the signed, expiring,
+    single-use ticket is the credential, bound to who asked for it."""
+    from app.jobs.service import JobService
+    from ..services import download_ticket_service
+    data = download_ticket_service.redeem(ticket)
+    if data['k'] == 'path':
+        path = data['t']
+        # Re-checked at fetch: the file may have moved or the roots changed.
+        if not FileService.is_path_allowed(path) or not os.path.isfile(path):
+            raise NotFoundError('File not found')
+        return send_file(path, as_attachment=True, download_name=os.path.basename(path))
+    if data['k'] == 'job':
+        job = JobService.get(data['t'])
+        if job is None or job.owner_type != 'user' or job.owner_id != data['u']:
+            raise NotFoundError('The download is not ready or has expired')
+        path = _ready_download(job)
+        name = (job.get_result() or {}).get('download_name') or 'files.zip'
+        response = send_file(path, as_attachment=True, download_name=name)
+        response.call_on_close(lambda: os.path.exists(path) and os.remove(path))
+        return response
+    raise NotFoundError('Unknown download')
 
 
 # ── S3 / object-storage browser (reuses the configured backup storage creds) ──

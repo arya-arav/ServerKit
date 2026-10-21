@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "将文件拖放到此处，或使用上面的按钮创建新内容。",
             "dropToUpload": "拖放即可上传",
             "failed": "失败：{{value}}",
-            "failed2": "失败：{{message}}",
             "failedToCreateFolder": "无法创建文件夹：{{message}}",
             "failedToLoadDirectory": "无法加载目录：{{message}}",
             "failedToReadFile": "无法读取文件：{{message}}",

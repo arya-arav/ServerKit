@@ -343,9 +343,9 @@ Regenerate (backend/):
 - `GET /files/disk-mounts`
 - `GET /files/disk-usage`
 - `GET /files/download`
+- `GET /files/fetch/{ticket}`
 - `GET /files/info`
 - `GET /files/jobs/{job_id}`
-- `GET /files/jobs/{job_id}/download`
 - `GET /files/owners`
 - `GET /files/read`
 - `GET /files/s3/browse`
@@ -967,8 +967,10 @@ Regenerate (backend/):
 - `POST /files/compress`
 - `POST /files/copy`
 - `POST /files/create`
+- `POST /files/download-link`
 - `POST /files/download-zip`
 - `POST /files/extract`
+- `POST /files/jobs/{job_id}/download-link`
 - `POST /files/mkdir`
 - `POST /files/move`
 - `POST /files/rename`

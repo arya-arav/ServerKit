@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "ফাইলগুলি এখানে ড্রপ করুন, অথবা নতুন কিছু তৈরি করতে উপরের বোতামগুলি ব্যবহার করুন৷",
             "dropToUpload": "আপলোড করতে ড্রপ করুন",
             "failed": "ব্যর্থ হয়েছে: {{value}}",
-            "failed2": "ব্যর্থ হয়েছে: {{message}}",
             "failedToCreateFolder": "ফোল্ডার তৈরি করতে ব্যর্থ হয়েছে: {{message}}৷",
             "failedToLoadDirectory": "ডিরেক্টরি লোড করতে ব্যর্থ হয়েছে: {{message}}",
             "failedToReadFile": "ফাইল পড়তে ব্যর্থ হয়েছে: {{message}}",

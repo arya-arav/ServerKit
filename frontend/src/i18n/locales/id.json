@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Letakkan file di sini, atau gunakan tombol di atas untuk membuat sesuatu yang baru.",
             "dropToUpload": "Jatuhkan untuk mengunggah",
             "failed": "Gagal: {{value}}",
-            "failed2": "Gagal: {{message}}",
             "failedToCreateFolder": "Gagal membuat folder: {{message}}",
             "failedToLoadDirectory": "Gagal memuat direktori: {{message}}",
             "failedToReadFile": "Gagal membaca file: {{message}}",

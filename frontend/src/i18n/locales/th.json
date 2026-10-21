@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "วางไฟล์ที่นี่ หรือใช้ปุ่มด้านบนเพื่อสร้างสิ่งใหม่",
             "dropToUpload": "วางเพื่ออัปโหลด",
             "failed": "ล้มเหลว: {{value}}",
-            "failed2": "ล้มเหลว: {{message}}",
             "failedToCreateFolder": "ไม่สามารถสร้างโฟลเดอร์: {{message}}",
             "failedToLoadDirectory": "ไม่สามารถโหลดไดเร็กทอรี: {{message}}",
             "failedToReadFile": "ไม่สามารถอ่านไฟล์: {{message}}",

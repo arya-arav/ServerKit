@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Thả tệp vào đây hoặc sử dụng các nút ở trên để tạo nội dung mới.",
             "dropToUpload": "Thả để tải lên",
             "failed": "Không thành công: {{value}}",
-            "failed2": "Không thành công: {{message}}",
             "failedToCreateFolder": "Không tạo được thư mục: {{message}}",
             "failedToLoadDirectory": "Không tải được thư mục: {{message}}",
             "failedToReadFile": "Không đọc được tệp: {{message}}",

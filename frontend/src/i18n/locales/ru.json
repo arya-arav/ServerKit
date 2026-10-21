@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Перетащите сюда файлы или воспользуйтесь кнопками выше, чтобы создать что-то новое.",
             "dropToUpload": "Перетащите, чтобы загрузить",
             "failed": "Не удалось: {{value}}",
-            "failed2": "Не удалось: {{message}}",
             "failedToCreateFolder": "Не удалось создать папку: {{message}}.",
             "failedToLoadDirectory": "Не удалось загрузить каталог: {{message}}.",
             "failedToReadFile": "Не удалось прочитать файл: {{message}}",

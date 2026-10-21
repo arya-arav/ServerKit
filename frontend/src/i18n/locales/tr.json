@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Dosyaları buraya bırakın veya yeni bir şey oluşturmak için yukarıdaki düğmeleri kullanın.",
             "dropToUpload": "Yüklemek için bırakın",
             "failed": "Başarısız: {{value}}",
-            "failed2": "Başarısız: {{message}}",
             "failedToCreateFolder": "Klasör oluşturulamadı: {{message}}",
             "failedToLoadDirectory": "Dizin yüklenemedi: {{message}}",
             "failedToReadFile": "Dosya okunamadı: {{message}}",

@@ -54,6 +54,6 @@ export const extractTo = (path, dest, overwrite = false) => runJob(() => api.ext
 
 export async function downloadAsZip(paths) {
     const job = await runJob(() => api.prepareZipDownload(paths));
-    api.downloadFileJob(job.id);
+    await api.downloadFileJob(job.id);
     return job.result || {};
 }

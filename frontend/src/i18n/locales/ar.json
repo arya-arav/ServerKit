@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "قم بإسقاط الملفات هنا، أو استخدم الأزرار أعلاه لإنشاء شيء جديد.",
             "dropToUpload": "أسقط للتحميل",
             "failed": "فشل: {{value}}",
-            "failed2": "فشل: {{message}}",
             "failedToCreateFolder": "فشل إنشاء المجلد: {{message}}",
             "failedToLoadDirectory": "فشل تحميل الدليل: {{message}}",
             "failedToReadFile": "فشل في قراءة الملف: {{message}}",

@@ -2729,7 +2729,6 @@
             "dropFilesHereOrUseThe": "Solte os arquivos aqui ou use os botões acima para criar algo novo.",
             "dropToUpload": "Solte para fazer upload",
             "failed": "Falha: {{value}}",
-            "failed2": "Falha: {{message}}",
             "failedToCreateFolder": "Falha ao criar pasta: {{message}}",
             "failedToLoadDirectory": "Falha ao carregar o diretório: {{message}}",
             "failedToReadFile": "Falha ao ler o arquivo: {{message}}",
