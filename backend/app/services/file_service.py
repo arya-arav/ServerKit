@@ -375,12 +375,11 @@ class FileService:
 
         try:
             # Ensure parent directory exists
-            parent = os.path.dirname(path)
-            if not os.path.exists(parent):
-                os.makedirs(parent)
+            cls.make_parents(os.path.dirname(path))
 
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(content)
+            cls.own_like_parent(path)
 
             return {'path': path}
         except PermissionError as e:
@@ -397,7 +396,7 @@ class FileService:
             raise ConflictError('Directory already exists')
 
         try:
-            os.makedirs(path)
+            cls.make_parents(path)
             return {'path': path}
         except PermissionError as e:
             raise PermissionDeniedError('Permission denied') from e
@@ -470,10 +469,13 @@ class FileService:
         cls._refuse_into_itself(src_path, dest_path)
 
         try:
-            if os.path.isdir(src_path):
-                shutil.copytree(src_path, dest_path)
+            # Links are copied as links: following them could pull in files
+            # from outside the allowed roots.
+            if os.path.isdir(src_path) and not os.path.islink(src_path):
+                shutil.copytree(src_path, dest_path, symlinks=True)
             else:
-                shutil.copy2(src_path, dest_path)
+                shutil.copy2(src_path, dest_path, follow_symlinks=False)
+            cls._own_like_source(src_path, dest_path)
             return {'src': src_path, 'dest': dest_path}
         except PermissionError as e:
             raise PermissionDeniedError('Permission denied') from e
@@ -501,6 +503,62 @@ class FileService:
             raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
             raise ValidationError(str(e), code='filesystem_error') from e
+
+    # ── ownership (fork) ──────────────────────────────────────────────
+    # The panel runs as root, so without these everything it creates is
+    # root:root — a copied or uploaded file in a site folder then can't be
+    # written by the site (or by SFTP users). Copies keep the source's owner;
+    # new files and folders take the owner of the folder they land in.
+
+    @staticmethod
+    def _can_chown() -> bool:
+        return hasattr(os, 'geteuid') and os.geteuid() == 0
+
+    @classmethod
+    def own_like_parent(cls, path: str) -> None:
+        if not cls._can_chown():
+            return
+        try:
+            ref = os.stat(os.path.dirname(os.path.abspath(path)))
+            os.lchown(path, ref.st_uid, ref.st_gid)
+        except OSError:
+            pass
+
+    @classmethod
+    def make_parents(cls, directory: str) -> None:
+        """os.makedirs, with each folder it creates owned like its parent."""
+        missing = []
+        current = os.path.abspath(directory)
+        while not os.path.exists(current):
+            missing.append(current)
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+        if not missing:
+            return
+        os.makedirs(directory)
+        for created in reversed(missing):
+            cls.own_like_parent(created)
+
+    @classmethod
+    def _own_like_source(cls, src_path: str, dest_path: str) -> None:
+        if not cls._can_chown():
+            return
+
+        def match(src, dest):
+            try:
+                st = os.lstat(src)
+                os.lchown(dest, st.st_uid, st.st_gid)
+            except OSError:
+                pass
+
+        match(src_path, dest_path)
+        if os.path.isdir(dest_path) and not os.path.islink(dest_path):
+            for root, dirs, files in os.walk(dest_path):
+                rel = os.path.relpath(root, dest_path)
+                for name in dirs + files:
+                    match(os.path.join(src_path, rel, name), os.path.join(root, name))
 
     @staticmethod
     def _refuse_into_itself(src_path: str, dest_path: str) -> None:

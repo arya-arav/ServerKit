@@ -82,3 +82,50 @@ def test_folder_upload_creates_missing_folders(client, auth_headers, site):
     resp = _upload(client, auth_headers, dest, 'logo.svg', data=b'<svg/>')
     assert resp.status_code == 201
     assert (site / 'assets' / 'img' / 'logo.svg').read_bytes() == b'<svg/>'
+
+
+# ── ownership: the panel runs as root ───────────────────────────────
+
+@pytest.fixture
+def chowns(monkeypatch):
+    """Pretend to be root and record lchown calls instead of making them."""
+    calls = {}
+    monkeypatch.setattr(FileService, '_can_chown', staticmethod(lambda: True))
+    monkeypatch.setattr('os.lchown', lambda path, uid, gid: calls.__setitem__(str(path), (uid, gid)))
+    return calls
+
+
+def test_copy_keeps_each_items_owner(site, chowns, monkeypatch):
+    import os
+    real_lstat = os.lstat
+
+    def fake_lstat(path):
+        st = real_lstat(path)
+        uid = 1001 if str(path).endswith('index.php') else 33
+        return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink, uid, uid,
+                               st.st_size, st.st_atime, st.st_mtime, st.st_ctime))
+    monkeypatch.setattr('os.lstat', fake_lstat)
+
+    FileService.copy(str(site), str(site.parent / 'site-copy'))
+
+    assert chowns[str(site.parent / 'site-copy')] == (33, 33)
+    assert chowns[str(site.parent / 'site-copy' / 'index.php')] == (1001, 1001)
+    assert chowns[str(site.parent / 'site-copy' / 'css')] == (33, 33)
+
+
+def test_new_files_and_folders_take_the_parent_folders_owner(site, chowns):
+    import os
+    parent_owner = (os.stat(site).st_uid, os.stat(site).st_gid)
+    FileService.create_file(str(site / 'new' / 'deep' / 'a.txt'))
+    assert chowns[str(site / 'new')] == parent_owner
+    assert chowns[str(site / 'new' / 'deep' / 'a.txt')] == parent_owner
+
+
+def test_copy_keeps_symlinks_as_links(site, tmp_path):
+    import os
+    outside = tmp_path / 'secret.txt'
+    outside.write_text('outside the allowed roots')
+    os.symlink(outside, site / 'link.txt')
+    FileService.copy(str(site), str(site.parent / 'site-copy'))
+    copied = site.parent / 'site-copy' / 'link.txt'
+    assert copied.is_symlink()

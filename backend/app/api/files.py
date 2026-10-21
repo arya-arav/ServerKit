@@ -356,12 +356,14 @@ def upload_file():
 
     try:
         # Ensure parent directory exists
-        parent = os.path.dirname(full_path)
-        if not os.path.exists(parent):
-            os.makedirs(parent)
+        FileService.make_parents(os.path.dirname(full_path))
 
-        # Save file
+        # Save file. A replaced file keeps its owner; a new one takes the
+        # folder's.
+        is_new = not os.path.exists(full_path)
         file.save(full_path)
+        if is_new:
+            FileService.own_like_parent(full_path)
 
         return jsonify({
             'success': True,

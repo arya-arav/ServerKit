@@ -113,6 +113,8 @@
   - **No silent overwrite** (`POST /files/upload`): an existing file is replaced only with `overwrite=1`, otherwise 409 `file_exists`. The UI asks once per batch. A folder is never replaced by a file.
   - **Upload name fix:** the uploaded filename is used as a name only, so `../x` can't land outside the chosen folder.
   - **Into-itself guard** (`FileService._refuse_into_itself`): a folder can't be copied or moved inside itself. Upstream's copytree would recurse into its own output.
+  - **Ownership** (`FileService.own_like_parent`, `make_parents`, `_own_like_source`): the panel runs as root, so upstream made every copy, upload, new file and new folder `root:root`, which a site or SFTP user then can't write. Now copies keep each item's owner. New files and folders, uploads included, take the owner of the folder they land in. A replaced upload keeps its owner.
+  - **Symlinks are copied as links.** Upstream's copy followed them, which could pull in files from outside the allowed roots.
   - Tests: `backend/tests/test_file_transfers.py`.
 - **SMTP card works without the Email extension** (`ConnectionsHub.jsx` `coreSmtpRelay`). Upstream's Settings → Connections "SMTP relay" card only called `/api/v1/email/relay*`, which only exists when the Email extension is installed. Without it, Test and Save failed with "The method is not allowed for the requested URL".
   - **Fallback:** without the extension, the card edits the panel's own SMTP connection, the same one Settings → Notifications sends with. That is the core SMTP email provider, or, while there is none, the Notifications email config (`source: 'notifications'` on test). The checkbox becomes "Send the panel's email through this server".

@@ -925,14 +925,18 @@ function FileManager() {
                 : t('app.fileManager.pastedItems', { count: done, defaultValue_one: 'Copied 1 item here', defaultValue_other: 'Copied {{count}} items here' }));
         }
         if (failures.length > 0) toast.error(t('app.fileManager.failed', "Couldn't finish for: {{value}}", { value: failures.join(', ') }));
-        if (mode === 'cut' && done > 0) setClipboard(null);
         if (previewFile && mode === 'cut' && items.some((i) => isInside(previewFile.path, i.path))) setPreviewFile(null);
         loadDirectory(currentPath);
         touched.forEach((dir) => refreshTreeNode(dir));
+        return done;
     };
 
-    const pasteInto = (targetDir = currentPath) => {
-        if (clipboard) transferInto(targetDir, clipboard.items, clipboard.mode);
+    // Cut items are pasted once; copied ones can be pasted again elsewhere.
+    // (A drag is its own transfer and leaves the clipboard alone.)
+    const pasteInto = async (targetDir = currentPath) => {
+        if (!clipboard) return;
+        const done = await transferInto(targetDir, clipboard.items, clipboard.mode);
+        if (clipboard.mode === 'cut' && done > 0) setClipboard(null);
     };
 
     // Rows and cards: dragging a selected item drags the whole selection.
