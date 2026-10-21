@@ -63,11 +63,25 @@ export async function moveFile(src, dest) {
     });
 }
 
-export async function changeFilePermissions(path, mode) {
+// With recursive on a folder, folders inside get mode and files get fileMode.
+export async function changeFilePermissions(path, mode, { recursive = false, fileMode = null } = {}) {
     return this.request('/files/chmod', {
         method: 'POST',
-        body: { path, mode }
+        body: { path, mode, recursive, file_mode: fileMode }
     });
+}
+
+// Delete to the Recycle Bin (fork); deleteFile stays the permanent delete.
+export async function trashFile(path) {
+    return this.request('/files/trash', { method: 'POST', body: { path } });
+}
+
+export async function changeFileOwner(path, owner, group, recursive = false) {
+    return this.request('/files/chown', { method: 'POST', body: { path, owner, group, recursive } });
+}
+
+export async function getFileOwners() {
+    return this.request('/files/owners');
 }
 
 export async function searchFiles(directory, pattern, maxResults = 100) {

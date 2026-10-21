@@ -2722,7 +2722,6 @@
             "createNewFolder": "创建新文件夹",
             "current": "当前的：",
             "data": "数据",
-            "deleteConfirmation": "删除确认",
             "deletedItems_one": "已删除 1 项",
             "deletedItems_other": "已删除 {{count}} 项",
             "diskUsage": "磁盘使用情况",

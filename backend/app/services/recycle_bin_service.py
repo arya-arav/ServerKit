@@ -254,6 +254,10 @@ def register_builtin_types():
         from app.services.managed_database_service import ManagedDatabaseService
         ManagedDatabaseService._delete_managed_policy(managed)
 
+    # Files the file manager moved to the trash (fork).
+    from app.services import file_trash_service
+    file_trash_service.register()
+
     register(
         'managed_database', ManagedDatabase, noun='managed database',
         label=lambda m: m.name,

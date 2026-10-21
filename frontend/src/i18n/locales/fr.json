@@ -2722,7 +2722,6 @@
             "createNewFolder": "Créer un nouveau dossier",
             "current": "Actuel:",
             "data": "Données",
-            "deleteConfirmation": "Confirmation de suppression",
             "deletedItems_one": "1 élément supprimé",
             "deletedItems_other": "{{count}} éléments supprimés",
             "diskUsage": "Utilisation du disque",

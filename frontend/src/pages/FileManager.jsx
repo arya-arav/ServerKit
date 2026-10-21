@@ -24,7 +24,9 @@ import PreviewDrawer from '../components/file-manager/PreviewDrawer';
 // CodeMirror loads only when a file is opened for editing (fork: arya-arav/ServerKit).
 const EditorWorkspace = lazy(() => import('../components/file-manager/editor/EditorWorkspace'));
 import ContextMenu from '../components/file-manager/ContextMenu';
-import { NamePromptModal, PermissionsModal, CompressModal, ExtractModal } from '../components/file-manager/FileDialogs';
+import {
+    NamePromptModal, PermissionsModal, OwnerModal, CompressModal, ExtractModal,
+} from '../components/file-manager/FileDialogs';
 import {
     archiveStem, defaultArchiveName, compressInto, extractTo, downloadAsZip,
 } from '../components/file-manager/archive';
@@ -32,6 +34,7 @@ import {
     INTERNAL_DRAG_TYPE, isInternalDrag, isExternalFileDrag, joinPath, parentOf, baseName,
     isInside, transferItems, readDraggedItems, collectDroppedFiles,
     moveInto, copyInto, uploadInto, createEmptyFile, listSubfolders,
+    trashEntry, chmodEntry, chownEntry,
 } from '../components/file-manager/transfer';
 import ServerPicker from '../components/ServerPicker';
 import { serverTarget, targetServerId } from '../utils/serverTarget';
@@ -43,6 +46,7 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { errorReason, toastError } from '@/utils/errorMessage';
 import usePersistentState from '@/hooks/usePersistentState';
 import { useStableHandler } from '@/hooks/useStableHandler';
+import { useAuth } from '../contexts/useAuth.js';
 import { formatTime } from '@/utils/intl';
 
 // Demo rail shortcuts (Quick access) — one-click jumps to the paths people
@@ -156,6 +160,7 @@ const FILTER_OPTIONS = [
 
 function FileManager() {
     const { t } = useTranslation();
+    const { isAdmin } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -166,6 +171,8 @@ function FileManager() {
     const [target, setTarget] = useState({ kind: 'local' });
     const isRemote = target.kind === 'agent';
     const isS3 = target.kind === 's3';
+    // Moves, copies, archives, the trash and owners work on the panel server only.
+    const transfersEnabled = !isRemote && !isS3;
     const { copy: copyText } = useClipboard({
         successMessage: t('app.fileManager.pathCopied', 'Path copied'),
         errorMessage: t('app.fileManager.couldNotCopyPath', "Couldn't copy the path."),
@@ -731,28 +738,39 @@ function FileManager() {
         }
     };
 
-    const handleDelete = (target) => {
+    // Delete moves items to the Recycle Bin (fork); `permanent` (Shift+Delete
+    // or "Delete permanently") removes them for good. Remote agents and S3
+    // have no bin, so a delete there is always permanent.
+    const handleDelete = (target, { permanent = false } = {}) => {
         const items = Array.isArray(target) ? target : [target];
         if (items.length === 0) return;
         if (remoteGuard('delete')) return;
-        const message = items.length === 1
-            ? `Delete "${items[0].name}"?${items[0].is_dir ? ' All contents inside will be removed.' : ''}`
-            : `Delete ${items.length} items? This cannot be undone.`;
+        const toBin = transfersEnabled && !permanent;
+        const vars = { count: items.length, name: items[0].name };
         setConfirmDialog({
-            titleKey: 'app.fileManager.deleteConfirmation', title: 'Delete confirmation',
-            message,
-            confirmTextKey: 'common.actions.delete', confirmText: 'Delete',
-            variant: 'danger',
+            title: toBin
+                ? t('app.fileManager.moveToBinTitle', 'Move to the recycle bin?')
+                : t('app.fileManager.deletePermanentlyTitle', 'Delete permanently?'),
+            message: toBin
+                ? t('app.fileManager.moveToBinMessage', { ...vars, defaultValue_one: 'You can restore "{{name}}" from Settings → Recycle bin for 30 days.', defaultValue_other: 'You can restore these {{count}} items from Settings → Recycle bin for 30 days.' })
+                : t('app.fileManager.deletePermanentlyMessage', { ...vars, defaultValue_one: '"{{name}}" will be deleted for good, with everything inside it. This can\'t be undone.', defaultValue_other: '{{count}} items will be deleted for good, with everything inside them. This can\'t be undone.' }),
+            confirmText: toBin ? t('app.fileManager.moveToBin', 'Move to bin') : t('app.fileManager.deletePermanently', 'Delete permanently'),
+            variant: toBin ? 'warning' : 'danger',
             onConfirm: async () => {
                 const failures = [];
                 for (const it of items) {
                     try {
-                        await fileApi.del(it.path);
+                        if (toBin) await trashEntry(it.path);
+                        else await fileApi.del(it.path);
                     } catch (error) {
-                        failures.push(`${it.name}: ${error.message}`);
+                        failures.push(`${it.name}: ${errorReason(error)}`);
                     }
                 }
-                if (failures.length === 0) toast.success(t('app.fileManager.deletedItems', { count: items.length, defaultValue_one: 'Deleted 1 item', defaultValue_other: 'Deleted {{count}} items' }));
+                if (failures.length === 0) {
+                    toast.success(toBin
+                        ? t('app.fileManager.movedToBin', { count: items.length, defaultValue_one: 'Moved 1 item to the recycle bin', defaultValue_other: 'Moved {{count}} items to the recycle bin' })
+                        : t('app.fileManager.deletedItems', { count: items.length, defaultValue_one: 'Deleted 1 item', defaultValue_other: 'Deleted {{count}} items' }));
+                }
                 else toast.error(t('app.fileManager.failed', "Couldn't finish for: {{value}}", { value: failures.join(', ') }));
                 if (previewFile && items.some((i) => i.path === previewFile.path)) setPreviewFile(null);
                 clearSelection();
@@ -775,17 +793,31 @@ function FileManager() {
         }
     };
 
-    const handleChangePermissions = async (entry, mode) => {
-        if (remoteGuard('change permissions')) return;
+    // { mode, recursive, fileMode } from the permissions grid; also used for
+    // owner changes ({ owner, group, recursive }) since the flow is the same.
+    const applyEntryChange = async (entry, change, op, done) => {
         try {
-            await api.changeFilePermissions(entry.path, mode);
-            toast.success(t('app.fileManager.permissionsUpdated', 'Permissions updated'));
+            const res = await op(entry.path, change);
+            toast.success(res?.changed > 1
+                ? `${done} ${t('app.fileManager.itemsChanged', { count: res.changed, defaultValue_one: '(1 item)', defaultValue_other: '({{count}} items)' })}`
+                : done);
             closeDialog();
             loadDirectory(currentPath);
         } catch (error) {
             toast.error(t('app.fileManager.failed2', "Couldn't do that. {{message}}", { message: errorReason(error) }));
         }
     };
+
+    const handleChangePermissions = (entry, change) => {
+        if (remoteGuard('change permissions')) return;
+        applyEntryChange(entry, change, chmodEntry, t('app.fileManager.permissionsUpdated', 'Permissions updated'));
+    };
+
+    const handleChangeOwner = (entry, change) => {
+        if (remoteGuard('change permissions')) return;
+        applyEntryChange(entry, change, chownEntry, t('app.fileManager.ownerUpdated', 'Owner updated'));
+    };
+    const openOwnerModal = (entry) => setDialog({ kind: 'owner', entry });
 
     const openRenameModal = (entry) => setDialog({ kind: 'rename', entry });
     const openPermissionsModal = (entry) => setDialog({ kind: 'permissions', entry });
@@ -878,7 +910,6 @@ function FileManager() {
     };
 
     // ─── move / copy ─────────────────────────────────────
-    const transfersEnabled = !isRemote && !isS3;
 
     const copyToClipboard = (mode, entries = selectedEntries) => {
         if (!transfersEnabled || entries.length === 0) return;
@@ -1185,7 +1216,7 @@ function FileManager() {
             }
             if ((e.key === 'Delete' || (e.key === 'Backspace' && e.metaKey)) && selectedEntries.length > 0) {
                 e.preventDefault();
-                handleDelete(selectedEntries);
+                handleDelete(selectedEntries, { permanent: e.shiftKey });
             }
             if (e.key === 'F2' && selectedEntries.length === 1) openRenameModal(selectedEntries[0]);
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && transfersEnabled) {
@@ -1878,7 +1909,7 @@ function FileManager() {
                         </span>
                     )}
                     <span className="status-shortcuts" title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}>
-                        {t('app.fileManager.shortcutHint', '⌫ Up · Del Delete · F2 Rename · ⌘C/X/V Copy, cut, paste · ⌘A All')}
+                        {t('app.fileManager.shortcutHintBin', '⌫ Up · Del To bin · ⇧Del Delete · F2 Rename · ⌘C/X/V Copy, cut, paste · ⌘A All')}
                     </span>
                 </div>
             </div>
@@ -1894,6 +1925,8 @@ function FileManager() {
                 onPermissions={openPermissionsModal}
                 onCopyPath={copyPathToClipboard}
                 onDelete={(e) => handleDelete(selectedEntries.length > 1 ? selectedEntries : e)}
+                onDeletePermanently={transfersEnabled ? (e) => handleDelete(selectedEntries.length > 1 ? selectedEntries : e, { permanent: true }) : undefined}
+                onChangeOwner={transfersEnabled && isAdmin ? openOwnerModal : undefined}
                 onCopy={transfersEnabled ? () => copyToClipboard('copy', selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
                 onCut={transfersEnabled ? () => copyToClipboard('cut', selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
                 onPasteInto={transfersEnabled && clipboard ? pasteInto : undefined}
@@ -1957,7 +1990,15 @@ function FileManager() {
                 <PermissionsModal
                     key={dialog.entry.path}
                     entry={dialog.entry}
-                    onSubmit={(mode) => handleChangePermissions(dialog.entry, mode)}
+                    onSubmit={(change) => handleChangePermissions(dialog.entry, change)}
+                    onClose={closeDialog}
+                />
+            )}
+            {dialog?.kind === 'owner' && (
+                <OwnerModal
+                    key={dialog.entry.path}
+                    entry={dialog.entry}
+                    onSubmit={(change) => handleChangeOwner(dialog.entry, change)}
                     onClose={closeDialog}
                 />
             )}

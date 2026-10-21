@@ -2722,7 +2722,6 @@
             "createNewFolder": "Utwórz nowy folder",
             "current": "Aktualny:",
             "data": "Dane",
-            "deleteConfirmation": "Usuń potwierdzenie",
             "deletedItems_one": "Usunięto 1 element",
             "deletedItems_other": "Usunięte elementy: {{count}}",
             "diskUsage": "Użycie dysku",

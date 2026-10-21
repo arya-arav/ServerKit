@@ -2722,7 +2722,6 @@
             "createNewFolder": "새 폴더 만들기",
             "current": "현재:",
             "data": "데이터",
-            "deleteConfirmation": "삭제 확인",
             "deletedItems_one": "항목 1개를 삭제했습니다",
             "deletedItems_other": "항목 {{count}}개를 삭제했습니다",
             "diskUsage": "디스크 사용량",

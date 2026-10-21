@@ -2229,3 +2229,37 @@ $drawer-width: 520px;
     .tok-emphasis { font-style: italic; }
     .tok-strong { font-weight: $font-weight-semibold; }
 }
+
+// ─── Permission and owner dialogs (fork) ────────────────
+// Modals render in a portal, outside .file-manager, so these sit at the top.
+.fm-perm-grid {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+    gap: $space-2 $space-3;
+    align-items: center;
+    margin-bottom: $space-4;
+}
+
+.fm-perm-grid__row { display: contents; }
+
+.fm-perm-grid__head {
+    font-size: $text-xs;
+    color: var(--text-dim);
+    text-align: center;
+}
+
+.fm-perm-grid__who { font-size: $text-sm; }
+
+.fm-perm-grid__cell {
+    display: flex;
+    justify-content: center;
+}
+
+.fm-check {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin-bottom: $space-3;
+    font-size: $text-sm;
+    cursor: pointer;
+}

@@ -2722,7 +2722,6 @@
             "createNewFolder": "Yeni Klasör Oluştur",
             "current": "Akım:",
             "data": "Veri",
-            "deleteConfirmation": "Onayı Sil",
             "deletedItems_one": "1 öğe silindi",
             "deletedItems_other": "{{count}} öğe silindi",
             "diskUsage": "Disk Kullanımı",

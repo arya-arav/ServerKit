@@ -2722,7 +2722,6 @@
             "createNewFolder": "Neuen Ordner erstellen",
             "current": "Aktuell:",
             "data": "Daten",
-            "deleteConfirmation": "Bestätigung löschen",
             "deletedItems_one": "1 Element gelöscht",
             "deletedItems_other": "{{count}} Elemente gelöscht",
             "diskUsage": "Festplattennutzung",

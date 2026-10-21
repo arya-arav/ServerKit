@@ -2722,7 +2722,6 @@
             "createNewFolder": "Criar nova pasta",
             "current": "Atual:",
             "data": "Dados",
-            "deleteConfirmation": "Excluir confirmação",
             "deletedItems_one": "1 item excluído",
             "deletedItems_other": "{{count}} itens excluídos",
             "diskUsage": "Uso de disco",

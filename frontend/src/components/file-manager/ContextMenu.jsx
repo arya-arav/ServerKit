@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import {
     Folder, Eye, Download, Edit3, Lock, Copy, Trash2, FileCode, Files, Scissors, ClipboardPaste,
-    FileArchive, PackageOpen,
+    FileArchive, PackageOpen, UserCog,
 } from 'lucide-react';
 import { isArchive } from './archive';
 import { Button as SharedButton } from '@/components/ui/button';
@@ -26,6 +26,9 @@ export default function ContextMenu({
     onCompress,
     onExtract,
     onDownloadZip,
+    // Trash (fork): Delete goes to the bin; this one skips it.
+    onDeletePermanently,
+    onChangeOwner,             // admins only
 }) {
     const { t } = useTranslation();
     if (!menu) return null;
@@ -90,6 +93,11 @@ export default function ContextMenu({
             <SharedButton variant="unstyled" type="button" onClick={() => { onPermissions(entry); onClose(); }}>
                 <Lock size={14} /> {t('common.labels.permissions', 'Permissions')}
             </SharedButton>
+            {onChangeOwner && !multi && (
+                <SharedButton variant="unstyled" type="button" onClick={() => { onChangeOwner(entry); onClose(); }}>
+                    <UserCog size={14} /> {t('app.contextMenu.changeOwner', 'Owner…')}
+                </SharedButton>
+            )}
             <SharedButton variant="unstyled" type="button" onClick={() => { onCopyPath(entry.path); onClose(); }}>
                 <Copy size={14} /> {t('app.contextMenu.copyPath', 'Copy path')}
             </SharedButton>
@@ -99,6 +107,11 @@ export default function ContextMenu({
                     ? t('app.contextMenu.deleteItems', { count: selectionCount, defaultValue_one: 'Delete 1 item', defaultValue_other: 'Delete {{count}} items' })
                     : t('common.actions.delete', 'Delete')}
             </SharedButton>
+            {onDeletePermanently && (
+                <SharedButton variant="unstyled" type="button" className="danger" onClick={() => { onDeletePermanently(entry); onClose(); }}>
+                    <Trash2 size={14} /> {t('app.contextMenu.deletePermanently', 'Delete permanently')}
+                </SharedButton>
+            )}
         </div>
     );
 }

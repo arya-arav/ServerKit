@@ -2722,7 +2722,6 @@
             "createNewFolder": "สร้างโฟลเดอร์ใหม่",
             "current": "ปัจจุบัน:",
             "data": "ข้อมูล",
-            "deleteConfirmation": "ลบการยืนยัน",
             "deletedItems_one": "ลบ 1 รายการแล้ว",
             "deletedItems_other": "ลบ {{count}} รายการแล้ว",
             "diskUsage": "การใช้ดิสก์",

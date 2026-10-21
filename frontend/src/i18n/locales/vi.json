@@ -2722,7 +2722,6 @@
             "createNewFolder": "Tạo thư mục mới",
             "current": "Hiện hành:",
             "data": "dữ liệu",
-            "deleteConfirmation": "Xóa xác nhận",
             "deletedItems_one": "Đã xóa 1 mục",
             "deletedItems_other": "Đã xóa {{count}} mục",
             "diskUsage": "Sử dụng đĩa",

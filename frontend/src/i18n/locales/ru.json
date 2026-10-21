@@ -2722,7 +2722,6 @@
             "createNewFolder": "Создать новую папку",
             "current": "Текущий:",
             "data": "Данные",
-            "deleteConfirmation": "Удалить подтверждение",
             "deletedItems_one": "Удалён 1 элемент",
             "deletedItems_other": "Удалено элементов: {{count}}",
             "diskUsage": "Использование диска",

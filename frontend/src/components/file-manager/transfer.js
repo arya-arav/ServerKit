@@ -112,3 +112,14 @@ export async function collectDroppedFiles(dataTransfer) {
     for (const entry of entries) await walk(entry, '');
     return out;
 }
+
+// ─── delete, permissions, owner (fork) ──────────────
+
+// Delete to the Recycle Bin; restorable from Settings → Recycle bin.
+export const trashEntry = (path) => api.trashFile(path);
+
+export const chmodEntry = (path, { mode, recursive = false, fileMode = null }) => (
+    api.changeFilePermissions(path, mode, { recursive, fileMode }));
+
+export const chownEntry = (path, { owner, group, recursive = false }) => (
+    api.changeFileOwner(path, owner, group, recursive));

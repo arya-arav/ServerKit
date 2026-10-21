@@ -2722,7 +2722,6 @@
             "createNewFolder": "নতুন ফোল্ডার তৈরি করুন",
             "current": "বর্তমান:",
             "data": "ডেটা",
-            "deleteConfirmation": "নিশ্চিতকরণ মুছুন",
             "deletedItems_one": "1টি আইটেম মুছে ফেলা হয়েছে",
             "deletedItems_other": "{{count}}টি আইটেম মুছে ফেলা হয়েছে",
             "diskUsage": "ডিস্ক ব্যবহার",

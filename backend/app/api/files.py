@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify, send_file
 from app.error_reporting import unexpected_response
 from app.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError, permission_denied
-from ..middleware.rbac import permission_required
+from ..middleware.rbac import admin_required, permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
 from ..services import archive_service
@@ -138,6 +138,20 @@ def delete_path():
     return jsonify({'success': True, **result}), 200
 
 
+@files_bp.route('/trash', methods=['POST'])
+@permission_required('files', 'write')
+def trash_path():
+    """Move a file or folder to the Recycle Bin (restorable for 30 days)."""
+    from flask_jwt_extended import get_jwt_identity
+    from ..services import file_trash_service
+    path = json_object().get('path')
+    if not path:
+        raise ValidationError('Path is required')
+    identity = get_jwt_identity()
+    result = file_trash_service.trash(path, user_id=int(identity) if str(identity).isdigit() else None)
+    return jsonify({'success': True, **result}), 200
+
+
 @files_bp.route('/rename', methods=['POST'])
 @permission_required('files', 'write')
 def rename_path():
@@ -213,9 +227,29 @@ def change_permissions():
     if not path or not mode:
         raise ValidationError('Path and mode are required')
 
-    result = FileService.change_permissions(path, mode)
+    result = FileService.change_permissions(
+        path, mode, recursive=bool(data.get('recursive')), file_mode=data.get('file_mode') or None)
 
     return jsonify({'success': True, **result}), 200
+
+
+@files_bp.route('/chown', methods=['POST'])
+@admin_required
+def change_owner():
+    """Change a file or folder's owner and group (admins only)."""
+    data = json_object()
+    path, owner, group = data.get('path'), data.get('owner'), data.get('group')
+    if not path or not owner or not group:
+        raise ValidationError('Path, owner and group are required')
+    result = FileService.change_owner(path, owner, group, recursive=bool(data.get('recursive')))
+    return jsonify({'success': True, **result}), 200
+
+
+@files_bp.route('/owners', methods=['GET'])
+@admin_required
+def list_owners():
+    """Users and groups to offer in the change-owner dialog."""
+    return jsonify(FileService.list_owners()), 200
 
 
 @files_bp.route('/search', methods=['GET'])

@@ -2722,7 +2722,6 @@
             "createNewFolder": "إنشاء مجلد جديد",
             "current": "حاضِر:",
             "data": "بيانات",
-            "deleteConfirmation": "حذف التأكيد",
             "deletedItems_one": "تم حذف عنصر واحد",
             "deletedItems_other": "تم حذف {{count}} عنصر",
             "diskUsage": "استخدام القرص",

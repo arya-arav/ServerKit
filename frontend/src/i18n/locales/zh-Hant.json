@@ -2722,7 +2722,6 @@
             "createNewFolder": "建立新資料夾",
             "current": "目前的：",
             "data": "資料",
-            "deleteConfirmation": "刪除確認",
             "deletedItems_one": "已刪除 1 個項目",
             "deletedItems_other": "已刪除 {{count}} 個項目",
             "diskUsage": "磁碟使用情況",

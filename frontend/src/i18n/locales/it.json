@@ -2722,7 +2722,6 @@
             "createNewFolder": "Crea nuova cartella",
             "current": "Attuale:",
             "data": "Dati",
-            "deleteConfirmation": "Elimina conferma",
             "deletedItems_one": "Eliminato 1 elemento",
             "deletedItems_other": "Eliminati {{count}} elementi",
             "diskUsage": "Utilizzo del disco",

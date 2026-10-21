@@ -2722,7 +2722,6 @@
             "createNewFolder": "Crear carpeta nueva",
             "current": "Actual:",
             "data": "Datos",
-            "deleteConfirmation": "Confirmación de eliminación",
             "deletedItems_one": "Se eliminó 1 elemento",
             "deletedItems_other": "Se eliminaron {{count}} elementos",
             "diskUsage": "Uso del disco",

@@ -2722,7 +2722,6 @@
             "createNewFolder": "Buat Folder Baru",
             "current": "Saat ini:",
             "data": "Data",
-            "deleteConfirmation": "Hapus Konfirmasi",
             "deletedItems_one": "1 item dihapus",
             "deletedItems_other": "{{count}} item dihapus",
             "diskUsage": "Penggunaan Disk",

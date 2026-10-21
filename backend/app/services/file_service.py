@@ -404,15 +404,25 @@ class FileService:
             raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
-    def delete(cls, path: str) -> Dict:
-        """Delete a file or directory."""
+    def require_deletable(cls, path: str) -> None:
+        """Writable, present (a broken link counts), and not a whole root:
+        deleting /var/www itself from the file manager is never intended."""
         cls._require_writable(path)
-
-        if not os.path.exists(path):
+        if not os.path.lexists(path):
             raise NotFoundError('Path not found')
+        if os.path.realpath(path) in {os.path.realpath(r) for r in cls.ALLOWED_ROOTS}:
+            raise ValidationError("Top-level folders can't be deleted from the file manager",
+                                  code='root_folder')
+
+    @classmethod
+    def delete(cls, path: str) -> Dict:
+        """Delete a file or directory permanently."""
+        cls.require_deletable(path)
 
         try:
-            if os.path.isdir(path):
+            # A link is removed as a link: rmtree refuses a symlinked folder,
+            # and must never be pointed at the folder it links to.
+            if os.path.isdir(path) and not os.path.islink(path):
                 shutil.rmtree(path)
             else:
                 os.remove(path)
@@ -570,8 +580,13 @@ class FileService:
             raise ValidationError("Can't put a folder inside itself", code='into_itself')
 
     @classmethod
-    def change_permissions(cls, path: str, mode: str) -> Dict:
-        """Change file/directory permissions."""
+    def change_permissions(cls, path: str, mode: str, recursive: bool = False,
+                           file_mode: Optional[str] = None) -> Dict:
+        """Change file/directory permissions. With ``recursive`` on a folder,
+        folders inside get ``mode`` and files get ``file_mode`` (default:
+        ``mode``), so 755/644 doesn't make every file executable. Symlinks
+        inside are skipped: chmod follows links, and a link must never turn a
+        chmod onto whatever it points at."""
         cls._require_writable(path)
 
         if not os.path.exists(path):
@@ -579,20 +594,86 @@ class FileService:
 
         # Convert octal string to int (parsed outside the chmod try so a
         # ValidationError below is never re-caught as a generic ValueError).
-        try:
-            mode_int = int(mode, 8)
-        except ValueError as e:
-            raise ValidationError('Invalid permission mode') from e
-        if mode_int < 0o000 or mode_int > 0o777:
-            raise ValidationError('Invalid permission mode. Must be between 000 and 777.')
+        mode_int = cls._parse_mode(mode)
+        file_mode_int = cls._parse_mode(file_mode) if file_mode else mode_int
 
         try:
             os.chmod(path, mode_int)
-            return {'path': path, 'mode': mode}
+            changed = 1
+            if recursive and os.path.isdir(path) and not os.path.islink(path):
+                for root, dirs, files in os.walk(path):
+                    for name in dirs:
+                        full = os.path.join(root, name)
+                        if not os.path.islink(full):
+                            os.chmod(full, mode_int)
+                            changed += 1
+                    for name in files:
+                        full = os.path.join(root, name)
+                        if not os.path.islink(full):
+                            os.chmod(full, file_mode_int)
+                            changed += 1
+            return {'path': path, 'mode': mode, 'changed': changed}
         except PermissionError as e:
             raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
             raise ValidationError(str(e), code='filesystem_error') from e
+
+    @staticmethod
+    def _parse_mode(mode) -> int:
+        try:
+            mode_int = int(str(mode), 8)
+        except ValueError as e:
+            raise ValidationError('Invalid permission mode') from e
+        if mode_int < 0o000 or mode_int > 0o777:
+            raise ValidationError('Invalid permission mode. Must be between 000 and 777.')
+        return mode_int
+
+    @classmethod
+    def change_owner(cls, path: str, owner: str, group: str, recursive: bool = False) -> Dict:
+        """chown by name. Links are changed themselves (lchown), never their
+        targets, and a recursive walk doesn't descend into linked folders."""
+        cls._require_writable(path)
+        if not os.path.lexists(path):
+            raise NotFoundError('Path not found')
+        if pwd is None or grp is None:
+            raise ValidationError('Changing owners is not supported on this system')
+        try:
+            uid = pwd.getpwnam(owner).pw_uid
+        except (KeyError, TypeError) as e:
+            raise ValidationError(f'Unknown user: {owner}') from e
+        try:
+            gid = grp.getgrnam(group).gr_gid
+        except (KeyError, TypeError) as e:
+            raise ValidationError(f'Unknown group: {group}') from e
+
+        try:
+            os.lchown(path, uid, gid)
+            changed = 1
+            if recursive and os.path.isdir(path) and not os.path.islink(path):
+                for root, dirs, files in os.walk(path):
+                    for name in dirs + files:
+                        os.lchown(os.path.join(root, name), uid, gid)
+                        changed += 1
+            return {'path': path, 'owner': owner, 'group': group, 'changed': changed}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
+        except OSError as e:
+            raise ValidationError(str(e), code='filesystem_error') from e
+
+    @staticmethod
+    def list_owners() -> Dict:
+        """Users and groups for the owner picker: people (uid >= 1000), root,
+        and the service accounts sites usually run as."""
+        if pwd is None or grp is None:
+            return {'users': [], 'groups': []}
+        service = {'www-data', 'nginx', 'apache', 'nobody', 'caddy', 'http'}
+
+        def wanted(name, num):
+            return num == 0 or 1000 <= num < 60000 or name in service
+
+        users = sorted({u.pw_name for u in pwd.getpwall() if wanted(u.pw_name, u.pw_uid)})
+        groups = sorted({g.gr_name for g in grp.getgrall() if wanted(g.gr_name, g.gr_gid)})
+        return {'users': users, 'groups': groups}
 
     @classmethod
     def search(cls, directory: str, pattern: str, max_results: int = 100) -> Dict:
