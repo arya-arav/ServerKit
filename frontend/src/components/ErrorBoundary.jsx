@@ -2,6 +2,7 @@ import { Component } from 'react';
 import api from '../services/api';
 import { t } from '../i18n/t';
 import ErrorState from './ErrorState';
+import { isStaleBuildError, reloadForNewBuild } from '../utils/staleBuild';
 
 // Class-based Error Boundary for catching React errors
 export class ErrorBoundary extends Component {
@@ -15,6 +16,9 @@ export class ErrorBoundary extends Component {
     }
 
     componentDidCatch(error, errorInfo) {
+        // A page file from before an update is gone: reload into the new
+        // build rather than report it as a crash (fork).
+        if (isStaleBuildError(error) && reloadForNewBuild()) return;
         this.setState({ errorInfo });
         // React already emits caught render failures in production. Keep the
         // extra component-stack log for local debugging without duplicating
