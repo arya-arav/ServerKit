@@ -387,9 +387,10 @@ class EmailProviderService:
 
     @classmethod
     def test_config(cls, data):
-        """Validate unsaved settings without storing them. With ``provider_id``,
-        blank or masked secrets fall back to that provider's stored ones, so
-        an edit form can test without re-entering the password."""
+        """Validate unsaved settings without storing them. Blank or masked
+        secrets fall back to the stored ones, so an edit form can test without
+        re-entering the password: ``provider_id``'s, or with
+        ``source: 'notifications'`` the Settings → Notifications SMTP config."""
         provider = (data.get('provider') or '').lower().strip()
         stored = cls.get_provider(data['provider_id']) if data.get('provider_id') else None
         if stored:
@@ -398,6 +399,8 @@ class EmailProviderService:
             return {'success': False, 'error': f'Unsupported email provider: {provider}'}
         spec = SUPPORTED[provider]
         creds = stored.credentials() if stored else {}
+        if not stored and provider == 'smtp' and data.get('source') == 'notifications':
+            creds = cls._notification_smtp_creds()
         for field in spec['fields']:
             value = data.get(field)
             if field in spec['secrets'] and (not value or _is_masked(value)):
@@ -410,6 +413,20 @@ class EmailProviderService:
             return cls._test(provider, creds)
         except Exception as exc:
             return {'success': False, 'error': str(exc)[:300]}
+
+    @staticmethod
+    def _notification_smtp_creds():
+        """The legacy Settings → Notifications SMTP settings (the transport
+        used while no provider row exists), in provider field names."""
+        from app.services.notification_service import NotificationService
+        cfg = NotificationService.get_config().get('email', {})
+        return {
+            'host': cfg.get('smtp_host') or '',
+            'port': cfg.get('smtp_port') or 587,
+            'username': cfg.get('smtp_user') or '',
+            'password': cfg.get('smtp_password') or '',
+            'use_tls': cfg.get('smtp_tls', True),
+        }
 
     @classmethod
     def _test(cls, provider, creds):

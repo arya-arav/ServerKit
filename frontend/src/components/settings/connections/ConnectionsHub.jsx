@@ -42,12 +42,25 @@ const CATEGORY_FOCUS_ID = {
 
 // The panel's own SMTP connection shaped like a relay config, for panels
 // without the Email extension. `core` routes the card's actions to the core
-// email-provider API; `id` is absent until a connection exists. Fork.
+// email-provider API (`id`), or, while no provider exists, to the
+// Settings → Notifications SMTP config (`legacy`). Fork.
 async function coreSmtpRelay() {
     const data = await api.getEmailProviders();
     const smtp = (data.providers || []).filter((p) => p.provider === 'smtp' && p.uses_notifications);
     const row = smtp.find((p) => p.is_default) || smtp[0];
-    if (!row) return { core: true };
+    if (!row) {
+        const email = (await api.getNotificationsConfig())?.email || {};
+        return {
+            core: true,
+            legacy: true,
+            host: email.smtp_host || '',
+            port: Number(email.smtp_port) || 587,
+            username: email.smtp_user || '',
+            use_tls: email.smtp_tls !== false,
+            enabled: Boolean(email.enabled),
+            password_set: Boolean(email.smtp_password),
+        };
+    }
     const s = row.settings || {};
     return {
         core: true,
@@ -315,7 +328,13 @@ export default function ConnectionsHub() {
     const onSaveRelay = useCallback(async (payload) => {
         try {
             let res;
-            if (relayConfig?.core) {
+            if (relayConfig?.legacy) {
+                const { host, port, username, password, use_tls: tls, enabled } = payload;
+                res = await api.updateNotificationChannel('email', {
+                    smtp_host: host, smtp_port: port, smtp_user: username, smtp_tls: tls, enabled,
+                    ...(password ? { smtp_password: password } : {}),
+                });
+            } else if (relayConfig?.core) {
                 const { enabled, provider_hint: _hint, ...fields } = payload;
                 res = relayConfig.id
                     ? await api.updateEmailProvider(relayConfig.id, { ...fields, is_active: enabled })
@@ -335,7 +354,10 @@ export default function ConnectionsHub() {
     const onTestRelay = useCallback(async (payload) => {
         try {
             const res = relayConfig?.core
-                ? await api.testEmailProviderConfig({ provider: 'smtp', provider_id: relayConfig.id, ...payload })
+                ? await api.testEmailProviderConfig({
+                    provider: 'smtp', provider_id: relayConfig.id,
+                    source: relayConfig.legacy ? 'notifications' : undefined, ...payload,
+                })
                 : await api.testEmailRelay(payload);
             if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks', 'Connection works'));
             else toastError(toast, t('app.connectionsHub.connectionTestFailed', "Couldn't connect."), res && res.error);
@@ -348,7 +370,8 @@ export default function ConnectionsHub() {
 
     const onDisableRelay = useCallback(async () => {
         try {
-            if (relayConfig?.core) await api.updateEmailProvider(relayConfig.id, { is_active: false });
+            if (relayConfig?.legacy) await api.updateNotificationChannel('email', { enabled: false });
+            else if (relayConfig?.core) await api.updateEmailProvider(relayConfig.id, { is_active: false });
             else await api.disableEmailRelay();
             toast.success(t('app.connectionsHub.relayDisabled', 'Relay disabled'));
             await loadData();

@@ -106,7 +106,7 @@
   - **Shortcut fix:** the file manager's own shortcuts ignore contenteditable fields and are off while the editor is open. Without that, Backspace in the editor went up a folder and Delete deleted the selected files.
   - Tests: `backend/tests/test_file_editor_saves.py`.
 - **SMTP card works without the Email extension** (`ConnectionsHub.jsx` `coreSmtpRelay`). Upstream's Settings → Connections "SMTP relay" card only called `/api/v1/email/relay*`, which only exists when the Email extension is installed. Without it, Test and Save failed with "The method is not allowed for the requested URL".
-  - **Fallback:** without the extension, the card edits the panel's own SMTP connection, the same one Settings → Notifications sends with. The checkbox becomes "Send the panel's email through this server".
+  - **Fallback:** without the extension, the card edits the panel's own SMTP connection, the same one Settings → Notifications sends with. That is the core SMTP email provider, or, while there is none, the Notifications email config (`source: 'notifications'` on test). The checkbox becomes "Send the panel's email through this server".
   - **Test before saving** (`POST /api/v1/notifications/admin/email-providers/test`, `EmailProviderService.test_config`): checks the settings in the form without storing them. A blank password reuses the stored one.
   - **Edit in place** (`PUT /admin/email-providers/<id>` now also takes credential fields, sender and `is_active`; `EmailProviderService.update_settings`). A blank or masked password is kept. Providers now return their non-secret `settings` (host, port, username), never secrets.
   - Tests: `backend/tests/test_email_provider_edit_and_test_config.py`.

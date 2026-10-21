@@ -65,6 +65,23 @@ def test_test_config_uses_form_values_and_stored_password(app):
         assert row.credentials()['host'] == 'smtp.example.com'
 
 
+def test_test_config_falls_back_to_notification_smtp_settings(app):
+    with app.app_context():
+        legacy = {'email': {'smtp_host': 'smtp.legacy.com', 'smtp_port': 465,
+                            'smtp_user': 'lu', 'smtp_password': 'legacy-pw', 'smtp_tls': False}}
+        with patch('app.services.notification_service.NotificationService.get_config',
+                   return_value=legacy), \
+                patch.object(EmailProviderService, '_test',
+                             return_value={'success': True}) as fake:
+            EmailProviderService.test_config({
+                'provider': 'smtp', 'source': 'notifications', 'username': 'new-user', 'password': '',
+            })
+        _, creds = fake.call_args.args
+        assert creds['host'] == 'smtp.legacy.com'
+        assert creds['username'] == 'new-user'
+        assert creds['password'] == 'legacy-pw'
+
+
 def test_test_config_requires_host_and_known_provider(app):
     with app.app_context():
         assert EmailProviderService.test_config({'provider': 'smtp'})['success'] is False
