@@ -105,6 +105,15 @@
   - **Backups out of the web root** (`FileService._backup_before_edit`): upstream saved `<file>.bak` next to the file, so a web root served `wp-config.php.bak` or `index.php.bak` as plain text. Pre-save copies now go to `/var/backups/serverkit/file-edits/` (700/600), with the newest 10 kept per file.
   - **Shortcut fix:** the file manager's own shortcuts ignore contenteditable fields and are off while the editor is open. Without that, Backspace in the editor went up a folder and Delete deleted the selected files.
   - Tests: `backend/tests/test_file_editor_saves.py`.
+- **File manager moves, copies and folder uploads** (`components/file-manager/transfer.js`). Upstream had copy/move endpoints but no way to use them from the file manager.
+  - **Drag to move:** drag files or folders (the whole selection if the item is selected) onto a folder row or card, a folder in the sidebar tree, or a breadcrumb. Hold Ctrl or Alt to copy instead.
+  - **Copy, cut, paste:** Ctrl+C / Ctrl+X / Ctrl+V, the selection bar's Copy and Cut, and right-click Copy, Cut and "Paste into folder". A bar shows what's waiting to be pasted. Copying into the same folder, or onto a taken name, makes "name (copy)", then "name (copy 2)".
+  - **New file:** creates an empty file and opens it in the code editor.
+  - **Folder upload:** an "Upload folder" button, and folders dragged in from the desktop keep their structure.
+  - **No silent overwrite** (`POST /files/upload`): an existing file is replaced only with `overwrite=1`, otherwise 409 `file_exists`. The UI asks once per batch. A folder is never replaced by a file.
+  - **Upload name fix:** the uploaded filename is used as a name only, so `../x` can't land outside the chosen folder.
+  - **Into-itself guard** (`FileService._refuse_into_itself`): a folder can't be copied or moved inside itself. Upstream's copytree would recurse into its own output.
+  - Tests: `backend/tests/test_file_transfers.py`.
 - **SMTP card works without the Email extension** (`ConnectionsHub.jsx` `coreSmtpRelay`). Upstream's Settings → Connections "SMTP relay" card only called `/api/v1/email/relay*`, which only exists when the Email extension is installed. Without it, Test and Save failed with "The method is not allowed for the requested URL".
   - **Fallback:** without the extension, the card edits the panel's own SMTP connection, the same one Settings → Notifications sends with. That is the core SMTP email provider, or, while there is none, the Notifications email config (`source: 'notifications'` on test). The checkbox becomes "Send the panel's email through this server".
   - **Test before saving** (`POST /api/v1/notifications/admin/email-providers/test`, `EmailProviderService.test_config`): checks the settings in the form without storing them. A blank password reuses the stored one.

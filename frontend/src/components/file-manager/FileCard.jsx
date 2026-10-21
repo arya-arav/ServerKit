@@ -13,6 +13,13 @@ function FileCard({
     onOpen,
     onToggleSelect,
     onContext,
+    // Drag to move (fork): rows drag when `draggable`; folders take drops.
+    draggable = false,
+    dropActive = false,
+    onDragStartItem,
+    onDragOverItem,
+    onDragLeaveItem,
+    onDropItem,
     isS3 = false,
 }) {
     const { t } = useTranslation();
@@ -22,7 +29,14 @@ function FileCard({
 
     return (
         <div
-            className={`file-card type-${type} ${selected ? 'selected' : ''} ${selectMode ? 'select-mode' : ''}`}
+            className={`file-card type-${type} ${selected ? 'selected' : ''} ${selectMode ? 'select-mode' : ''}${dropActive ? ' drop-target' : ''}`}
+            draggable={draggable}
+            onDragStart={draggable ? (e) => onDragStartItem(e, entry) : undefined}
+            {...(entry.is_dir && onDropItem ? {
+                onDragOver: (e) => onDragOverItem(e, entry.path),
+                onDragLeave: (e) => onDragLeaveItem(e, entry.path),
+                onDrop: (e) => onDropItem(e, entry.path),
+            } : {})}
             onClick={(e) => {
                 if (e.ctrlKey || e.metaKey || e.shiftKey || selectMode) {
                     onToggleSelect(entry, e);

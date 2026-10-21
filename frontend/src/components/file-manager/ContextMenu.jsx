@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import {
-    Folder, Eye, Download, Edit3, Lock, Copy, Trash2, FileCode,
+    Folder, Eye, Download, Edit3, Lock, Copy, Trash2, FileCode, Files, Scissors, ClipboardPaste,
 } from 'lucide-react';
 import { Button as SharedButton } from '@/components/ui/button';
 
@@ -15,6 +15,10 @@ export default function ContextMenu({
     onPermissions,
     onCopyPath,
     onDelete,
+    // Clipboard (fork): copy/cut the selection, paste into a folder.
+    onCopy,
+    onCut,
+    onPasteInto,
 }) {
     const { t } = useTranslation();
     if (!menu) return null;
@@ -40,6 +44,23 @@ export default function ContextMenu({
                 <SharedButton variant="unstyled" type="button" onClick={() => { onDownload(entry); onClose(); }}>
                     <Download size={14} /> {t('common.actions.download', 'Download')}
                 </SharedButton>
+            )}
+            {onCopy && (
+                <>
+                    <div className="context-menu-divider" />
+                    <SharedButton variant="unstyled" type="button" onClick={() => { onCopy(); onClose(); }}>
+                        <Files size={14} /> {t('app.contextMenu.copy', 'Copy')}
+                    </SharedButton>
+                    <SharedButton variant="unstyled" type="button" onClick={() => { onCut(); onClose(); }}>
+                        <Scissors size={14} /> {t('app.contextMenu.cut', 'Cut')}
+                    </SharedButton>
+                    {entry.is_dir && onPasteInto && (
+                        <SharedButton variant="unstyled" type="button" onClick={() => { onPasteInto(entry.path); onClose(); }}>
+                            <ClipboardPaste size={14} /> {t('app.contextMenu.pasteInto', 'Paste into folder')}
+                        </SharedButton>
+                    )}
+                    <div className="context-menu-divider" />
+                </>
             )}
             <SharedButton variant="unstyled" type="button" onClick={() => { onRename(entry); onClose(); }}>
                 <Edit3 size={14} /> {t('app.contextMenu.rename', 'Rename')}

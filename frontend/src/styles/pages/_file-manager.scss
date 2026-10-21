@@ -476,6 +476,20 @@ $ft-default:  #646b7a;
 
     .bulk-bar-actions { display: flex; gap: $space-1; }
 
+    // Items waiting to be pasted (fork); dashed so it reads apart from the
+    // selection bar above it.
+    .clipboard-bar { border-bottom-style: dashed; }
+
+    // Drag to move (fork): the folder under the pointer.
+    .file-item.drop-target,
+    .file-card.drop-target,
+    .tree-row.drop-target,
+    .crumb.drop-target {
+        background: var(--accent-bg);
+        outline: 1px dashed var(--accent-bright);
+        outline-offset: -1px;
+    }
+
     .bulk-btn {
         display: inline-flex;
         align-items: center;

@@ -3,7 +3,7 @@ import Spinner from '../Spinner';
 import { useTranslation } from 'react-i18next';
 import { Button as SharedButton } from '@/components/ui/button';
 
-function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, onNavigate, onToggle }) {
+function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, onNavigate, onToggle, dropTarget, dropProps }) {
     const { t } = useTranslation();
     const isExpanded = expanded.has(node.path);
     const isActive = currentPath === node.path;
@@ -13,7 +13,8 @@ function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, 
     return (
         <div className="tree-node">
             <div
-                className={`tree-row ${isActive ? 'active' : ''}`}
+                className={`tree-row ${isActive ? 'active' : ''}${dropTarget === node.path ? ' drop-target' : ''}`}
+                {...(dropProps ? dropProps(node.path) : {})}
                 style={{ paddingLeft: 6 + level * 14 }}
                 onClick={() => onNavigate(node.path)}
             >
@@ -50,6 +51,8 @@ function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, 
                             currentPath={currentPath}
                             onNavigate={onNavigate}
                             onToggle={onToggle}
+                            dropTarget={dropTarget}
+                            dropProps={dropProps}
                         />
                     ))}
                 </div>
@@ -71,6 +74,9 @@ export default function FolderTree({
     currentPath,
     onNavigate,
     onToggle,
+    // Drag to move (fork): the folder being hovered, and drop handlers per path.
+    dropTarget = null,
+    dropProps = null,
 }) {
     return (
         <div className="folder-tree">
@@ -85,6 +91,8 @@ export default function FolderTree({
                     currentPath={currentPath}
                     onNavigate={onNavigate}
                     onToggle={onToggle}
+                    dropTarget={dropTarget}
+                    dropProps={dropProps}
                 />
             ))}
         </div>

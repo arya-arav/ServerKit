@@ -11,7 +11,7 @@ import {
     HardDrive, Clock, PanelLeftClose, PanelLeftOpen,
     LayoutGrid, List, Home, CloudUpload,
     Check, Copy, ArrowUpDown, Zap, Globe, Boxes, SlidersHorizontal, FileText,
-    FolderTree as FolderTreeIcon, Terminal,
+    FolderTree as FolderTreeIcon, Terminal, Files, Scissors, ClipboardPaste, FilePlus, FolderUp,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,11 @@ import PreviewDrawer from '../components/file-manager/PreviewDrawer';
 const EditorWorkspace = lazy(() => import('../components/file-manager/editor/EditorWorkspace'));
 import ContextMenu from '../components/file-manager/ContextMenu';
 import { NamePromptModal, PermissionsModal } from '../components/file-manager/FileDialogs';
+import {
+    INTERNAL_DRAG_TYPE, isInternalDrag, isExternalFileDrag, joinPath, parentOf, baseName,
+    isInside, transferItems, readDraggedItems, collectDroppedFiles,
+    moveInto, copyInto, uploadInto, createEmptyFile, listSubfolders,
+} from '../components/file-manager/transfer';
 import ServerPicker from '../components/ServerPicker';
 import { serverTarget, targetServerId } from '../utils/serverTarget';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
@@ -264,7 +269,14 @@ function FileManager() {
     const [uploads, setUploads] = useState([]);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef(null);
+    const folderInputRef = useRef(null);
     const dragCounter = useRef(0);
+
+    // ─── move / copy (fork) ──────────────────────────────
+    // { mode: 'copy' | 'cut', items: [{ path, name, is_dir }] }
+    const [clipboard, setClipboard] = useState(null);
+    // The folder a dragged item is hovering over.
+    const [dropTarget, setDropTarget] = useState(null);
 
     // ─── view prefs ──────────────────────────────────────
     const [viewMode, setViewMode] = usePersistentState(STORAGE.viewMode, (v) => v || 'list');
@@ -705,14 +717,7 @@ function FileManager() {
             closeDialog();
             loadDirectory(currentPath);
             // Refresh tree cache for parent so the new folder appears in the tree
-            const parent = currentPath;
-            if (treeCache.has(parent)) {
-                try {
-                    const data = await api.browseFiles(parent, false);
-                    const folders = (data.entries || []).filter((e) => e.is_dir).map((e) => ({ path: e.path, name: e.name }));
-                    setTreeCache((c) => { const n = new Map(c); n.set(parent, folders); return n; });
-                } catch { /* ignore */ }
-            }
+            refreshTreeNode(currentPath);
         } catch (error) {
             toast.error(t('app.fileManager.failedToCreateFolder', "Couldn't create the folder. {{message}}", { message: errorReason(error) }));
         }
@@ -778,54 +783,77 @@ function FileManager() {
     const openPermissionsModal = (entry) => setDialog({ kind: 'permissions', entry });
 
     // ─── upload ──────────────────────────────────────────
-    const uploadFiles = async (files) => {
-        const fileList = Array.from(files);
-        if (fileList.length === 0) return;
+    // Takes Files or { file, relPath } (folder uploads keep their structure).
+    // Existing files aren't replaced silently: they're collected and the user
+    // is asked once for the whole batch (fork).
+    const uploadFiles = async (files, { overwrite = false, dir = currentPath } = {}) => {
+        const items = Array.from(files).map((f) => (f instanceof File
+            ? { file: f, relPath: f.webkitRelativePath || f.name }
+            : f));
+        if (items.length === 0) return;
         if (remoteGuard('upload')) return;
-        const queue = fileList.map((f, i) => ({
+        const queue = items.map((it, i) => ({
             id: `${Date.now()}-${i}`,
-            name: f.name,
-            size: f.size,
+            name: it.relPath,
+            size: it.file.size,
             progress: 0,
             status: 'pending',
         }));
         setUploads((p) => [...p, ...queue]);
 
         let succeeded = 0;
-        for (let i = 0; i < fileList.length; i++) {
-            const file = fileList[i];
+        const existing = [];
+        for (let i = 0; i < items.length; i++) {
             const itemId = queue[i].id;
             try {
                 setUploads((p) => p.map((u) => u.id === itemId ? { ...u, status: 'uploading' } : u));
-                const doUpload = isS3 ? api.uploadS3 : api.uploadFile;
-                await doUpload(currentPath, file, (progress) => {
+                const onProgress = (progress) => {
                     setUploads((p) => p.map((u) => u.id === itemId ? { ...u, progress } : u));
-                });
+                };
+                await uploadInto(dir, items[i], onProgress, { isS3, overwrite });
                 setUploads((p) => p.map((u) => u.id === itemId ? { ...u, status: 'done', progress: 100 } : u));
                 succeeded++;
             } catch (error) {
+                if (error.code === 'file_exists') existing.push(items[i]);
                 setUploads((p) => p.map((u) => u.id === itemId ? { ...u, status: 'error', error: error.message } : u));
             }
         }
-        if (succeeded > 0) toast.success(t('app.fileManager.uploadedFiles', { count: fileList.length, succeeded, defaultValue_one: 'Uploaded {{succeeded}} of 1 file', defaultValue_other: 'Uploaded {{succeeded}} of {{count}} files' }));
+        if (succeeded > 0) toast.success(t('app.fileManager.uploadedFiles', { count: items.length, succeeded, defaultValue_one: 'Uploaded {{succeeded}} of 1 file', defaultValue_other: 'Uploaded {{succeeded}} of {{count}} files' }));
         loadDirectory(currentPath);
         setTimeout(() => {
             setUploads((p) => p.filter((u) => u.status === 'uploading' || u.status === 'pending'));
         }, 4000);
+        if (existing.length > 0) {
+            setConfirmDialog({
+                title: t('app.fileManager.replaceFilesTitle', 'Replace existing files?'),
+                message: t('app.fileManager.replaceFilesMessage', {
+                    count: existing.length, name: existing[0].relPath,
+                    defaultValue_one: '"{{name}}" already exists here. Replace it with the uploaded file?',
+                    defaultValue_other: '{{count}} files already exist here, such as "{{name}}". Replace them with the uploaded files?',
+                }),
+                confirmText: t('app.fileManager.replace', 'Replace'),
+                variant: 'danger',
+                onConfirm: () => { setConfirmDialog(null); uploadFiles(existing, { overwrite: true, dir }); },
+                onCancel: () => setConfirmDialog(null),
+            });
+        }
     };
 
     const handleUploadInput = (e) => {
         if (e.target.files) uploadFiles(e.target.files);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (e.target) e.target.value = '';
     };
 
     const handleDragEnter = (e) => {
         e.preventDefault(); e.stopPropagation();
+        // Rows dragged inside the page are moves, not uploads.
+        if (!isExternalFileDrag(e)) return;
         dragCounter.current += 1;
         if (e.dataTransfer.items?.length > 0) setDragActive(true);
     };
     const handleDragLeave = (e) => {
         e.preventDefault(); e.stopPropagation();
+        if (!isExternalFileDrag(e)) return;
         dragCounter.current -= 1;
         if (dragCounter.current === 0) setDragActive(false);
     };
@@ -834,7 +862,124 @@ function FileManager() {
         e.preventDefault(); e.stopPropagation();
         dragCounter.current = 0;
         setDragActive(false);
-        if (e.dataTransfer.files?.length > 0) uploadFiles(e.dataTransfer.files);
+        setDropTarget(null);
+        if (!isExternalFileDrag(e)) return;
+        collectDroppedFiles(e.dataTransfer)
+            .then((items) => uploadFiles(items))
+            .catch((error) => toast.error(t('app.fileManager.couldNotReadDrop', "Couldn't read the dropped files. {{message}}", { message: errorReason(error) })));
+    };
+
+    // ─── move / copy ─────────────────────────────────────
+    const transfersEnabled = !isRemote && !isS3;
+
+    const copyToClipboard = (mode, entries = selectedEntries) => {
+        if (!transfersEnabled || entries.length === 0) return;
+        setClipboard({ mode, items: transferItems(entries) });
+        toast.success(mode === 'cut'
+            ? t('app.fileManager.cutItems', { count: entries.length, defaultValue_one: 'Cut 1 item. Paste it into another folder.', defaultValue_other: 'Cut {{count}} items. Paste them into another folder.' })
+            : t('app.fileManager.copiedItems', { count: entries.length, defaultValue_one: 'Copied 1 item', defaultValue_other: 'Copied {{count}} items' }));
+    };
+
+    // Re-reads a folder the tree has cached, so moved folders show up there.
+    const refreshTreeNode = async (path) => {
+        if (!treeCache.has(path)) return;
+        try {
+            const folders = await listSubfolders(path);
+            setTreeCache((c) => { const n = new Map(c); n.set(path, folders); return n; });
+        } catch { /* the tree refreshes on next expand */ }
+    };
+
+    // Moves ('cut') or copies items into targetDir. A copy into the folder it
+    // came from (or onto a taken name) becomes "name (copy)".
+    const transferInto = async (targetDir, items, mode) => {
+        if (!items?.length) return;
+        if (!transfersEnabled) {
+            toast.error(t('app.fileManager.transfersLocalOnly', 'Moving and copying work on the panel server only.'));
+            return;
+        }
+        let done = 0;
+        const failures = [];
+        const touched = new Set([targetDir]);
+        for (const it of items) {
+            const name = it.name || baseName(it.path);
+            if (it.path === targetDir || (mode === 'cut' && parentOf(it.path) === targetDir)) continue;
+            if (it.is_dir && isInside(targetDir, it.path)) {
+                failures.push(`${name}: ${t('app.fileManager.intoItself', "can't go inside itself")}`);
+                continue;
+            }
+            try {
+                if (mode === 'cut') {
+                    await moveInto(it, targetDir);
+                    touched.add(parentOf(it.path));
+                } else {
+                    await copyInto(it, targetDir);
+                }
+                done++;
+            } catch (error) {
+                failures.push(`${name}: ${errorReason(error)}`);
+            }
+        }
+        if (done > 0) {
+            toast.success(mode === 'cut'
+                ? t('app.fileManager.movedItems', { count: done, defaultValue_one: 'Moved 1 item', defaultValue_other: 'Moved {{count}} items' })
+                : t('app.fileManager.pastedItems', { count: done, defaultValue_one: 'Copied 1 item here', defaultValue_other: 'Copied {{count}} items here' }));
+        }
+        if (failures.length > 0) toast.error(t('app.fileManager.failed', "Couldn't finish for: {{value}}", { value: failures.join(', ') }));
+        if (mode === 'cut' && done > 0) setClipboard(null);
+        if (previewFile && mode === 'cut' && items.some((i) => isInside(previewFile.path, i.path))) setPreviewFile(null);
+        loadDirectory(currentPath);
+        touched.forEach((dir) => refreshTreeNode(dir));
+    };
+
+    const pasteInto = (targetDir = currentPath) => {
+        if (clipboard) transferInto(targetDir, clipboard.items, clipboard.mode);
+    };
+
+    // Rows and cards: dragging a selected item drags the whole selection.
+    const handleItemDragStart = (e, entry) => {
+        const entries = selectedPaths.has(entry.path) ? selectedEntries : [entry];
+        e.dataTransfer.setData(INTERNAL_DRAG_TYPE, JSON.stringify(transferItems(entries)));
+        e.dataTransfer.setData('text/plain', entries.map((x) => x.path).join('\n'));
+        e.dataTransfer.effectAllowed = 'copyMove';
+    };
+    // Folders (rows, cards, tree, breadcrumbs) take drops. Ctrl/Alt copies.
+    const handleFolderDragOver = (e, dirPath) => {
+        if (!transfersEnabled || !isInternalDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = e.ctrlKey || e.altKey ? 'copy' : 'move';
+        if (dropTarget !== dirPath) setDropTarget(dirPath);
+    };
+    const handleFolderDragLeave = (e, dirPath) => {
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        setDropTarget((cur) => (cur === dirPath ? null : cur));
+    };
+    const handleFolderDrop = (e, dirPath) => {
+        if (!transfersEnabled || !isInternalDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setDropTarget(null);
+        transferInto(dirPath, readDraggedItems(e), e.ctrlKey || e.altKey ? 'copy' : 'cut');
+    };
+    const folderDropProps = (dirPath) => (transfersEnabled ? {
+        onDragOver: (e) => handleFolderDragOver(e, dirPath),
+        onDragLeave: (e) => handleFolderDragLeave(e, dirPath),
+        onDrop: (e) => handleFolderDrop(e, dirPath),
+    } : {});
+
+    // ─── new file ────────────────────────────────────────
+    const handleCreateFile = async (name) => {
+        if (remoteGuard('create file')) return;
+        const path = joinPath(currentPath, name);
+        try {
+            await createEmptyFile(path);
+            toast.success(t('app.fileManager.fileCreated', 'File created'));
+            closeDialog();
+            loadDirectory(currentPath);
+            openInEditor({ path, name, is_dir: false });
+        } catch (error) {
+            toast.error(t('app.fileManager.failedToCreateFile', "Couldn't create the file. {{message}}", { message: errorReason(error) }));
+        }
     };
 
     // ─── derived ─────────────────────────────────────────
@@ -950,6 +1095,14 @@ function FileManager() {
                 handleDelete(selectedEntries);
             }
             if (e.key === 'F2' && selectedEntries.length === 1) openRenameModal(selectedEntries[0]);
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && transfersEnabled) {
+                const key = e.key.toLowerCase();
+                if ((key === 'c' || key === 'x') && selectedEntries.length > 0 && !window.getSelection()?.toString()) {
+                    e.preventDefault();
+                    copyToClipboard(key === 'x' ? 'cut' : 'copy');
+                }
+                if (key === 'v' && clipboard) { e.preventDefault(); pasteInto(currentPath); }
+            }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
                 e.preventDefault();
                 setSelectedPaths(new Set(sortedFiltered.map((x) => x.path)));
@@ -959,7 +1112,7 @@ function FileManager() {
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [selectedEntries, sortedFiltered, contextMenu, previewFile, parentPath, selectedPaths, editorVisible]); // eslint-disable-line
+    }, [selectedEntries, sortedFiltered, contextMenu, previewFile, parentPath, selectedPaths, editorVisible, clipboard, currentPath, transfersEnabled]); // eslint-disable-line
 
     // ─── close popovers ──────────────────────────────────
     useEffect(() => {
@@ -989,6 +1142,18 @@ function FileManager() {
     const rowRename = useStableHandler(openRenameModal);
     const rowPermissions = useStableHandler(openPermissionsModal);
     const rowDelete = useStableHandler((entry) => handleDelete(entry));
+    const rowDragStart = useStableHandler(handleItemDragStart);
+    const rowDragOver = useStableHandler(handleFolderDragOver);
+    const rowDragLeave = useStableHandler(handleFolderDragLeave);
+    const rowDrop = useStableHandler(handleFolderDrop);
+    const rowDragProps = (entry) => (transfersEnabled ? {
+        draggable: true,
+        dropActive: dropTarget === entry.path,
+        onDragStartItem: rowDragStart,
+        onDragOverItem: rowDragOver,
+        onDragLeaveItem: rowDragLeave,
+        onDropItem: rowDrop,
+    } : {});
 
     const copyPathToClipboard = (path) => copyText(path);
 
@@ -1008,6 +1173,15 @@ function FileManager() {
                 type="button"
                 variant="outline"
                 size="sm"
+                onClick={() => setDialog({ kind: 'newFile' })}
+                disabled={isRemote || isS3}
+            >
+                <FilePlus size={14} /> {t('app.fileManager.newFile', 'New file')}
+            </Button>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setDialog({ kind: 'newFolder' })}
                 disabled={isRemote || isS3}
             >
@@ -1021,6 +1195,15 @@ function FileManager() {
                 disabled={isRemote}
             >
                 <Upload size={14} /> {t('app.fileManager.upload', 'Upload')}
+            </Button>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => folderInputRef.current?.click()}
+                disabled={isRemote}
+            >
+                <FolderUp size={14} /> {t('app.fileManager.uploadFolder', 'Upload folder')}
             </Button>
             {!isS3 && (
                 <Button type="button" size="sm" onClick={() => navigate('/terminal')}>
@@ -1042,6 +1225,14 @@ function FileManager() {
             <input
                 type="file"
                 ref={fileInputRef}
+                multiple
+                className="hidden"
+                onChange={handleUploadInput}
+            />
+            <input
+                type="file"
+                ref={folderInputRef}
+                webkitdirectory=""
                 multiple
                 className="hidden"
                 onChange={handleUploadInput}
@@ -1120,8 +1311,9 @@ function FileManager() {
                             <span key={crumb.path + idx} className="crumb-segment">
                                 {idx > 0 && <span className="crumb-separator">/</span>}
                                 <Button variant="unstyled" type="button"
-                                    className={`crumb ${idx === breadcrumbs.length - 1 ? 'crumb-active' : ''}`}
+                                    className={`crumb ${idx === breadcrumbs.length - 1 ? 'crumb-active' : ''}${dropTarget === crumb.path ? ' drop-target' : ''}`}
                                     onClick={() => navigateTo(crumb.path)}
+                                    {...folderDropProps(crumb.path)}
                                 >
                                     {crumb.name}
                                 </Button>
@@ -1235,6 +1427,16 @@ function FileManager() {
                         <Button variant="unstyled" type="button" className="bulk-btn" onClick={downloadSelected}>
                             <Download size={14} /> {t('common.actions.download', 'Download')}
                         </Button>
+                        {transfersEnabled && (
+                            <>
+                                <Button variant="unstyled" type="button" className="bulk-btn" onClick={() => copyToClipboard('copy')}>
+                                    <Files size={14} /> {t('app.fileManager.copy', 'Copy')}
+                                </Button>
+                                <Button variant="unstyled" type="button" className="bulk-btn" onClick={() => copyToClipboard('cut')}>
+                                    <Scissors size={14} /> {t('app.fileManager.cut', 'Cut')}
+                                </Button>
+                            </>
+                        )}
                         {selectedEntries.length === 1 && (
                             <>
                                 <Button variant="unstyled" type="button" className="bulk-btn" onClick={() => openRenameModal(selectedEntries[0])}>
@@ -1250,6 +1452,27 @@ function FileManager() {
                         </Button>
                         <Button variant="unstyled" type="button" className="bulk-btn ghost" onClick={clearSelection}>
                             <X size={14} /> {t('common.actions.clear', 'Clear')}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {clipboard && transfersEnabled && (
+                <div className="bulk-bar clipboard-bar">
+                    <div className="bulk-bar-info">
+                        {clipboard.mode === 'cut' ? <Scissors size={14} /> : <Files size={14} />}
+                        <span>
+                            {clipboard.mode === 'cut'
+                                ? t('app.fileManager.clipboardCut', { count: clipboard.items.length, defaultValue_one: '1 item to move', defaultValue_other: '{{count}} items to move' })
+                                : t('app.fileManager.clipboardCopy', { count: clipboard.items.length, defaultValue_one: '1 item to copy', defaultValue_other: '{{count}} items to copy' })}
+                        </span>
+                    </div>
+                    <div className="bulk-bar-actions">
+                        <Button variant="unstyled" type="button" className="bulk-btn" onClick={() => pasteInto(currentPath)}>
+                            <ClipboardPaste size={14} /> {t('app.fileManager.pasteHere', 'Paste here')}
+                        </Button>
+                        <Button variant="unstyled" type="button" className="bulk-btn ghost" onClick={() => setClipboard(null)}>
+                            <X size={14} /> {t('common.actions.cancel', 'Cancel')}
                         </Button>
                     </div>
                 </div>
@@ -1382,6 +1605,8 @@ function FileManager() {
                                         currentPath={currentPath}
                                         onNavigate={navigateTo}
                                         onToggle={toggleTreeExpand}
+                                        dropTarget={dropTarget}
+                                        dropProps={transfersEnabled ? folderDropProps : null}
                                     />
                                 </div>
                             )}
@@ -1438,6 +1663,7 @@ function FileManager() {
                                         onToggleSelect={rowToggleSelect}
                                         onContext={rowContext}
                                         isS3={isS3}
+                                        {...rowDragProps(entry)}
                                     />
                                 ))}
                             </div>
@@ -1480,6 +1706,7 @@ function FileManager() {
                                         onRename={rowRename}
                                         onPermissions={rowPermissions}
                                         onDelete={rowDelete}
+                                        {...rowDragProps(entry)}
                                     />
                                 ))}
                             </div>
@@ -1551,7 +1778,7 @@ function FileManager() {
                         </span>
                     )}
                     <span className="status-shortcuts" title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}>
-                        {t('app.fileManager.upDelDeleteF2RenameA', '⌫ Up · Del Delete · F2 Rename · ⌘A All')}
+                        {t('app.fileManager.shortcutHint', '⌫ Up · Del Delete · F2 Rename · ⌘C/X/V Copy, cut, paste · ⌘A All')}
                     </span>
                 </div>
             </div>
@@ -1567,6 +1794,9 @@ function FileManager() {
                 onPermissions={openPermissionsModal}
                 onCopyPath={copyPathToClipboard}
                 onDelete={(e) => handleDelete(selectedEntries.length > 1 ? selectedEntries : e)}
+                onCopy={transfersEnabled ? () => copyToClipboard('copy', selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
+                onCut={transfersEnabled ? () => copyToClipboard('cut', selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
+                onPasteInto={transfersEnabled && clipboard ? pasteInto : undefined}
             />
 
             {dialog?.kind === 'newFolder' && (
@@ -1577,6 +1807,17 @@ function FileManager() {
                     hint={<p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>}
                     submitLabel={t('app.fileManager.createFolder', 'Create folder')}
                     onSubmit={handleCreateFolder}
+                    onClose={closeDialog}
+                />
+            )}
+            {dialog?.kind === 'newFile' && (
+                <NamePromptModal
+                    title={t('app.fileManager.createNewFile', 'Create new file')}
+                    label={t('app.fileManager.fileName', 'File name')}
+                    placeholder="index.php"
+                    hint={<p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>}
+                    submitLabel={t('app.fileManager.createFile', 'Create file')}
+                    onSubmit={handleCreateFile}
                     onClose={closeDialog}
                 />
             )}

@@ -12,6 +12,13 @@ function FileRow({
     onOpen,
     onToggleSelect,
     onContext,
+    // Drag to move (fork): rows drag when `draggable`; folders take drops.
+    draggable = false,
+    dropActive = false,
+    onDragStartItem,
+    onDragOverItem,
+    onDragLeaveItem,
+    onDropItem,
     onDownload,
     onRename,
     onPermissions,
@@ -20,7 +27,14 @@ function FileRow({
     const { t } = useTranslation();
     return (
         <div
-            className={`file-item ${selected ? 'selected' : ''} ${selectMode ? 'select-mode' : ''}`}
+            className={`file-item ${selected ? 'selected' : ''} ${selectMode ? 'select-mode' : ''}${dropActive ? ' drop-target' : ''}`}
+            draggable={draggable}
+            onDragStart={draggable ? (e) => onDragStartItem(e, entry) : undefined}
+            {...(entry.is_dir && onDropItem ? {
+                onDragOver: (e) => onDragOverItem(e, entry.path),
+                onDragLeave: (e) => onDragLeaveItem(e, entry.path),
+                onDrop: (e) => onDropItem(e, entry.path),
+            } : {})}
             onClick={(e) => {
                 if (e.ctrlKey || e.metaKey || e.shiftKey || selectMode) {
                     onToggleSelect(entry, e);

@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify, send_file
 from app.error_reporting import unexpected_response
-from app.exceptions import NotFoundError, PermissionDeniedError, ValidationError, permission_denied
+from app.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError, permission_denied
 from ..middleware.rbac import permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
@@ -333,16 +333,28 @@ def upload_file():
             'error': f'File too large. Maximum size is {FileService._format_size(FileService.MAX_UPLOAD_SIZE)}'
         }), 400
 
+    # Determine full path. A client-supplied filename is a name, never a
+    # path: "../x" must not climb out of the destination folder.
+    if os.path.isdir(destination):
+        name = os.path.basename(file.filename.replace('\\', '/'))
+        if name in ('', '.', '..'):
+            raise ValidationError('Invalid file name')
+        full_path = os.path.join(destination, name)
+    else:
+        full_path = destination
+
+    if not FileService.is_path_writable(full_path):
+        return jsonify({'error': 'Access denied'}), 403
+
+    # Replacing an existing file is opt-in (the UI asks first), and a folder
+    # is never replaced by a file.
+    if os.path.isdir(full_path):
+        raise ConflictError('A folder with that name already exists', code='folder_exists')
+    overwrite = (request.form.get('overwrite') or '').lower() in ('1', 'true', 'yes')
+    if os.path.exists(full_path) and not overwrite:
+        raise ConflictError('A file with that name already exists', code='file_exists')
+
     try:
-        # Determine full path
-        if os.path.isdir(destination):
-            full_path = os.path.join(destination, file.filename)
-        else:
-            full_path = destination
-
-        if not FileService.is_path_writable(full_path):
-            return jsonify({'error': 'Access denied'}), 403
-
         # Ensure parent directory exists
         parent = os.path.dirname(full_path)
         if not os.path.exists(parent):

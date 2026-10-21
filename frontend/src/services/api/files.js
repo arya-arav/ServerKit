@@ -103,11 +103,15 @@ export async function getFileBlob(path) {
     return this.requestBlob(`/files/download?path=${encodeURIComponent(path)}`);
 }
 
-export async function uploadFile(destination, file, onProgress = null) {
+// `destination` is a folder (the file keeps its name) or a full file path
+// (folder uploads). An existing file is only replaced with `overwrite`;
+// otherwise the upload rejects with status 409 and code 'file_exists'.
+export async function uploadFile(destination, file, onProgress = null, { overwrite = false } = {}) {
     const token = this.getToken();
     const formData = new FormData();
     formData.append('file', file);
     formData.append('destination', destination);
+    if (overwrite) formData.append('overwrite', '1');
 
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -126,7 +130,12 @@ export async function uploadFile(destination, file, onProgress = null) {
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve(JSON.parse(xhr.responseText));
             } else {
-                reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed'));
+                let body = {};
+                try { body = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
+                const err = new Error(body.error || 'Upload failed');
+                err.status = xhr.status;
+                err.code = body.code;
+                reject(err);
             }
         };
 

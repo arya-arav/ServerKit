@@ -467,6 +467,7 @@ class FileService:
 
         if os.path.exists(dest_path):
             raise ConflictError('Destination already exists')
+        cls._refuse_into_itself(src_path, dest_path)
 
         try:
             if os.path.isdir(src_path):
@@ -491,6 +492,7 @@ class FileService:
 
         if os.path.exists(dest_path):
             raise ConflictError('Destination already exists')
+        cls._refuse_into_itself(src_path, dest_path)
 
         try:
             shutil.move(src_path, dest_path)
@@ -499,6 +501,15 @@ class FileService:
             raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
             raise ValidationError(str(e), code='filesystem_error') from e
+
+    @staticmethod
+    def _refuse_into_itself(src_path: str, dest_path: str) -> None:
+        """A folder can't be copied or moved inside itself: copytree would
+        recurse into its own output and move would fail half-way."""
+        src = os.path.realpath(src_path)
+        dest = os.path.realpath(dest_path)
+        if os.path.isdir(src) and (dest == src or dest.startswith(src + os.sep)):
+            raise ValidationError("Can't put a folder inside itself", code='into_itself')
 
     @classmethod
     def change_permissions(cls, path: str, mode: str) -> Dict:
