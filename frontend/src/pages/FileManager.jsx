@@ -12,6 +12,7 @@ import {
     LayoutGrid, List, Home, CloudUpload,
     Check, Copy, ArrowUpDown, Zap, Globe, Boxes, SlidersHorizontal, FileText,
     FolderTree as FolderTreeIcon, Terminal, Files, Scissors, ClipboardPaste, FilePlus, FolderUp,
+    FileArchive,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,10 @@ import PreviewDrawer from '../components/file-manager/PreviewDrawer';
 // CodeMirror loads only when a file is opened for editing (fork: arya-arav/ServerKit).
 const EditorWorkspace = lazy(() => import('../components/file-manager/editor/EditorWorkspace'));
 import ContextMenu from '../components/file-manager/ContextMenu';
-import { NamePromptModal, PermissionsModal } from '../components/file-manager/FileDialogs';
+import { NamePromptModal, PermissionsModal, CompressModal, ExtractModal } from '../components/file-manager/FileDialogs';
+import {
+    archiveStem, defaultArchiveName, compressInto, extractTo, downloadAsZip,
+} from '../components/file-manager/archive';
 import {
     INTERNAL_DRAG_TYPE, isInternalDrag, isExternalFileDrag, joinPath, parentOf, baseName,
     isInside, transferItems, readDraggedItems, collectDroppedFiles,
@@ -36,7 +40,7 @@ import { TREE_ROOTS, getFileType, formatBytes } from '../components/file-manager
 import { useClipboard } from '@/hooks/useClipboard';
 import { useTranslation } from 'react-i18next';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
-import { errorReason } from '@/utils/errorMessage';
+import { errorReason, toastError } from '@/utils/errorMessage';
 import usePersistentState from '@/hooks/usePersistentState';
 import { useStableHandler } from '@/hooks/useStableHandler';
 import { formatTime } from '@/utils/intl';
@@ -896,11 +900,8 @@ function FileManager() {
     // Moves ('cut') or copies items into targetDir. A copy into the folder it
     // came from (or onto a taken name) becomes "name (copy)".
     const transferInto = async (targetDir, items, mode) => {
-        if (!items?.length) return;
-        if (!transfersEnabled) {
-            toast.error(t('app.fileManager.transfersLocalOnly', 'Moving and copying work on the panel server only.'));
-            return;
-        }
+        // Callers only offer moves and copies on the panel server.
+        if (!items?.length || !transfersEnabled) return;
         let done = 0;
         const failures = [];
         const touched = new Set([targetDir]);
@@ -988,6 +989,90 @@ function FileManager() {
         } catch (error) {
             toast.error(t('app.fileManager.failedToCreateFile', "Couldn't create the file. {{message}}", { message: errorReason(error) }));
         }
+    };
+
+    // ─── archives (fork) ─────────────────────────────────
+    // Server jobs (compress, extract, zip for download) sit in the upload
+    // tray while they run. A failure is toasted here with failMessage and
+    // resolves to null.
+    const runTask = async (label, failMessage, work) => {
+        const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setUploads((p) => [...p, { id, name: label, size: 0, progress: 100, status: 'uploading', task: true }]);
+        try {
+            const result = await work();
+            setUploads((p) => p.map((u) => (u.id === id ? { ...u, status: 'done' } : u)));
+            return result;
+        } catch (error) {
+            setUploads((p) => p.map((u) => (u.id === id ? { ...u, status: 'error', error: error.message } : u)));
+            toastError(toast, failMessage, error);
+            return null;
+        } finally {
+            setTimeout(() => setUploads((p) => p.filter((u) => u.id !== id)), 4000);
+        }
+    };
+
+    const openCompress = (entries) => {
+        if (!transfersEnabled || entries.length === 0) return;
+        setDialog({ kind: 'compress', entries });
+    };
+
+    const handleCompress = async (entries, { fileName, format }) => {
+        closeDialog();
+        const dir = currentPath;
+        const result = await runTask(
+            t('app.fileManager.compressing', 'Compressing to {{name}}', { name: fileName }),
+            t('app.fileManager.couldNotCompress', "Couldn't compress."),
+            () => compressInto(entries.map((e) => e.path), joinPath(dir, fileName), format),
+        );
+        if (result) {
+            toast.success(t('app.fileManager.archiveCreated', 'Created {{name}}', { name: fileName })
+                + (result?.result?.skipped ? ` ${t('app.fileManager.linksSkipped', { count: result.result.skipped, defaultValue_one: '(1 link skipped: zip has no links)', defaultValue_other: '({{count}} links skipped: zip has no links)' })}` : ''));
+            if (dir === currentPath) loadDirectory(currentPath);
+        }
+    };
+
+    const openExtract = (entry) => {
+        if (!transfersEnabled) return;
+        setDialog({ kind: 'extract', entry });
+    };
+
+    const handleExtract = async (entry, dest, overwrite = false) => {
+        closeDialog();
+        const result = await runTask(
+            t('app.fileManager.extracting', 'Extracting {{name}}', { name: entry.name }),
+            t('app.fileManager.couldNotExtract', "Couldn't extract."),
+            () => extractTo(entry.path, dest, overwrite),
+        );
+        if (!result) return;
+        if (result.conflicts) {
+            setConfirmDialog({
+                title: t('app.fileManager.replaceFilesTitle', 'Replace existing files?'),
+                message: t('app.fileManager.extractConflicts', {
+                    count: result.conflicts, name: result.examples?.[0] || '', dest,
+                    defaultValue_one: '"{{name}}" already exists in {{dest}}. Replace it with the file from the archive?',
+                    defaultValue_other: '{{count}} files already exist in {{dest}}, such as "{{name}}". Replace them with the files from the archive?',
+                }),
+                confirmText: t('app.fileManager.replace', 'Replace'),
+                variant: 'danger',
+                onConfirm: () => { setConfirmDialog(null); handleExtract(entry, dest, true); },
+                onCancel: () => setConfirmDialog(null),
+            });
+            return;
+        }
+        toast.success(t('app.fileManager.extractedFiles', { count: result.files || 0, defaultValue_one: 'Extracted 1 file', defaultValue_other: 'Extracted {{count}} files' })
+            + (result.skipped ? ` ${t('app.fileManager.extractSkipped', { count: result.skipped, defaultValue_one: '(1 link or special file skipped)', defaultValue_other: '({{count}} links or special files skipped)' })}` : ''));
+        loadDirectory(currentPath);
+        refreshTreeNode(parentOf(dest));
+    };
+
+    const handleDownloadZip = async (entries) => {
+        if (entries.length === 0) return;
+        const name = entries.length === 1 ? `${entries[0].name}.zip` : 'files.zip';
+        await runTask(
+            t('app.fileManager.preparingDownload', 'Preparing {{name}}', { name }),
+            t('app.fileManager.couldNotZip', "Couldn't prepare the download."),
+            () => downloadAsZip(entries.map((e) => e.path)),
+        );
     };
 
     // ─── derived ─────────────────────────────────────────
@@ -1166,7 +1251,9 @@ function FileManager() {
     const copyPathToClipboard = (path) => copyText(path);
 
     const downloadSelected = () => {
-        selectedEntries.filter((e) => !e.is_dir).forEach((e) => fileApi.download(e));
+        if (selectedEntries.length === 1 && !selectedEntries[0].is_dir) fileApi.download(selectedEntries[0]);
+        else if (transfersEnabled) handleDownloadZip(selectedEntries);
+        else selectedEntries.filter((e) => !e.is_dir).forEach((e) => fileApi.download(e));
     };
 
     const getDiskColor = (percent) => {
@@ -1265,10 +1352,12 @@ function FileManager() {
                         <CloudUpload size={16} />
                         <span>
                             {activeUploads.length > 0
-                                ? t('app.fileManager.uploadingFiles', { count: activeUploads.length, defaultValue_one: 'Uploading 1 file…', defaultValue_other: 'Uploading {{count}} files…' })
+                                ? (activeUploads.every((u) => u.task)
+                                    ? t('app.fileManager.working', 'Working…')
+                                    : t('app.fileManager.uploadingFiles', { count: activeUploads.length, defaultValue_one: 'Uploading 1 file…', defaultValue_other: 'Uploading {{count}} files…' }))
                                 : t('app.fileManager.uploadsComplete', 'Uploads complete')}
                         </span>
-                        {activeUploads.length > 0 && (
+                        {activeUploads.some((u) => !u.task) && (
                             <span className="upload-tray-percent">{Math.round(totalUploadProgress)}%</span>
                         )}
                         <Button variant="unstyled" type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title={t('common.actions.clear', 'Clear')}>
@@ -1280,10 +1369,10 @@ function FileManager() {
                             <div key={u.id} className={`upload-tray-item status-${u.status}`}>
                                 <span className="upload-name">{u.name}</span>
                                 <div className="upload-bar">
-                                    <div className="upload-bar-fill" style={{ width: `${u.progress}%` }} />
+                                    <div className={`upload-bar-fill${u.task && u.status === 'uploading' ? ' is-working' : ''}`} style={{ width: `${u.progress}%` }} />
                                 </div>
                                 <span className="upload-status">
-                                    {u.status === 'done' ? t('common.actions.done', 'Done') : u.status === 'error' ? t('app.fileManager.uploadFailed', 'Failed') : `${Math.round(u.progress)}%`}
+                                    {u.status === 'done' ? t('common.actions.done', 'Done') : u.status === 'error' ? t('app.fileManager.uploadFailed', 'Failed') : u.task ? '…' : `${Math.round(u.progress)}%`}
                                 </span>
                             </div>
                         ))}
@@ -1442,6 +1531,9 @@ function FileManager() {
                                 </Button>
                                 <Button variant="unstyled" type="button" className="bulk-btn" onClick={() => copyToClipboard('cut')}>
                                     <Scissors size={14} /> {t('app.fileManager.cut', 'Cut')}
+                                </Button>
+                                <Button variant="unstyled" type="button" className="bulk-btn" onClick={() => openCompress(selectedEntries)}>
+                                    <FileArchive size={14} /> {t('app.fileManager.compress', 'Compress')}
                                 </Button>
                             </>
                         )}
@@ -1805,6 +1897,9 @@ function FileManager() {
                 onCopy={transfersEnabled ? () => copyToClipboard('copy', selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
                 onCut={transfersEnabled ? () => copyToClipboard('cut', selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
                 onPasteInto={transfersEnabled && clipboard ? pasteInto : undefined}
+                onCompress={transfersEnabled ? () => openCompress(selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
+                onExtract={transfersEnabled ? openExtract : undefined}
+                onDownloadZip={transfersEnabled ? () => handleDownloadZip(selectedEntries.length > 0 ? selectedEntries : [contextMenu.entry]) : undefined}
             />
 
             {dialog?.kind === 'newFolder' && (
@@ -1826,6 +1921,24 @@ function FileManager() {
                     hint={<p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>}
                     submitLabel={t('app.fileManager.createFile', 'Create file')}
                     onSubmit={handleCreateFile}
+                    onClose={closeDialog}
+                />
+            )}
+            {dialog?.kind === 'compress' && (
+                <CompressModal
+                    items={dialog.entries.length}
+                    initialName={defaultArchiveName(dialog.entries, currentPath)}
+                    folder={currentPath}
+                    onSubmit={(choice) => handleCompress(dialog.entries, choice)}
+                    onClose={closeDialog}
+                />
+            )}
+            {dialog?.kind === 'extract' && (
+                <ExtractModal
+                    key={dialog.entry.path}
+                    entry={dialog.entry}
+                    initialDest={joinPath(parentOf(dialog.entry.path), archiveStem(dialog.entry.name))}
+                    onSubmit={(dest) => handleExtract(dialog.entry, dest)}
                     onClose={closeDialog}
                 />
             )}

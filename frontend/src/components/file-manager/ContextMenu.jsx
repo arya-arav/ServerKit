@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import {
     Folder, Eye, Download, Edit3, Lock, Copy, Trash2, FileCode, Files, Scissors, ClipboardPaste,
+    FileArchive, PackageOpen,
 } from 'lucide-react';
+import { isArchive } from './archive';
 import { Button as SharedButton } from '@/components/ui/button';
 
 export default function ContextMenu({
@@ -19,6 +21,11 @@ export default function ContextMenu({
     onCopy,
     onCut,
     onPasteInto,
+    // Archives (fork): compress the selection, extract an archive, zip a
+    // folder (or several items) for download.
+    onCompress,
+    onExtract,
+    onDownloadZip,
 }) {
     const { t } = useTranslation();
     if (!menu) return null;
@@ -40,9 +47,24 @@ export default function ContextMenu({
                     <FileCode size={14} /> {t('app.contextMenu.edit', 'Edit')}
                 </SharedButton>
             )}
-            {!entry.is_dir && (
+            {!entry.is_dir && !multi && (
                 <SharedButton variant="unstyled" type="button" onClick={() => { onDownload(entry); onClose(); }}>
                     <Download size={14} /> {t('common.actions.download', 'Download')}
+                </SharedButton>
+            )}
+            {onDownloadZip && (entry.is_dir || multi) && (
+                <SharedButton variant="unstyled" type="button" onClick={() => { onDownloadZip(); onClose(); }}>
+                    <Download size={14} /> {t('app.contextMenu.downloadZip', 'Download as zip')}
+                </SharedButton>
+            )}
+            {onCompress && (
+                <SharedButton variant="unstyled" type="button" onClick={() => { onCompress(); onClose(); }}>
+                    <FileArchive size={14} /> {t('app.contextMenu.compress', 'Compress…')}
+                </SharedButton>
+            )}
+            {onExtract && !multi && isArchive(entry) && (
+                <SharedButton variant="unstyled" type="button" onClick={() => { onExtract(entry); onClose(); }}>
+                    <PackageOpen size={14} /> {t('app.contextMenu.extract', 'Extract…')}
                 </SharedButton>
             )}
             {onCopy && (

@@ -6,6 +6,8 @@ from app.exceptions import ConflictError, NotFoundError, PermissionDeniedError, 
 from ..middleware.rbac import permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
+from ..services import archive_service
+from ..services.archive_service import ArchiveService
 from app.api._request import json_object
 import os
 import tempfile
@@ -375,6 +377,85 @@ def upload_file():
         return jsonify({'error': 'Permission denied'}), 403
     except Exception as e:  # noqa: BLE001 - reported, not swallowed
         return unexpected_response(e)
+
+
+# ── Archives (fork): compress, extract, zip for download ──
+# The work runs as a job (big archives outlast a proxied request); the page
+# polls /files/jobs/<id>. Validation happens here so mistakes fail fast.
+
+def _enqueue_archive_job(kind, payload):
+    from flask_jwt_extended import get_jwt_identity
+    from app.jobs.service import JobService
+    job = JobService.enqueue(kind, payload=payload, max_attempts=1,
+                             owner_type='user', owner_id=get_jwt_identity())
+    return jsonify({'job_id': job.id}), 202
+
+
+def _own_archive_job(job_id):
+    """The caller's own archive job, or a 404 (never someone else's)."""
+    from flask_jwt_extended import get_jwt_identity
+    from app.jobs.service import JobService
+    job = JobService.get(job_id)
+    if (job is None or job.kind not in archive_service.JOB_KINDS
+            or job.owner_type != 'user' or job.owner_id != str(get_jwt_identity())):
+        raise NotFoundError('Job not found')
+    return job
+
+
+@files_bp.route('/compress', methods=['POST'])
+@permission_required('files', 'write')
+def compress_paths():
+    """Pack files/folders into a new zip, tar.gz or tar archive."""
+    data = json_object()
+    fmt = data.get('format') or 'zip'
+    paths = ArchiveService.check_compress(data.get('paths'), data.get('dest'), fmt)
+    return _enqueue_archive_job(archive_service.COMPRESS_JOB_KIND,
+                                {'paths': paths, 'dest': os.path.abspath(data['dest']), 'format': fmt})
+
+
+@files_bp.route('/extract', methods=['POST'])
+@permission_required('files', 'write')
+def extract_archive():
+    """Unpack an archive into a folder. Without overwrite, a run that would
+    replace files writes nothing and reports the conflicts as its result."""
+    data = json_object()
+    ArchiveService.check_extract(data.get('path'), data.get('dest'))
+    return _enqueue_archive_job(archive_service.EXTRACT_JOB_KIND, {
+        'path': os.path.abspath(data['path']), 'dest': os.path.abspath(data['dest']),
+        'overwrite': bool(data.get('overwrite')),
+    })
+
+
+@files_bp.route('/download-zip', methods=['POST'])
+@permission_required('files', 'read')
+def prepare_zip_download():
+    """Zip folders/files for download; fetch it from /jobs/<id>/download."""
+    data = json_object()
+    paths = ArchiveService.check_sources(data.get('paths'))
+    return _enqueue_archive_job(archive_service.DOWNLOAD_JOB_KIND, {'paths': paths})
+
+
+@files_bp.route('/jobs/<job_id>', methods=['GET'])
+@permission_required('files', 'read')
+def get_archive_job(job_id):
+    """Status of one of the caller's archive jobs."""
+    job = _own_archive_job(job_id)
+    return jsonify({'id': job.id, 'kind': job.kind, 'status': job.status,
+                    'result': job.get_result(), 'error': job.error_message}), 200
+
+
+@files_bp.route('/jobs/<job_id>/download', methods=['GET'])
+@permission_required('files', 'read')
+def download_archive_job(job_id):
+    """The zip a download job built. Removed once sent."""
+    job = _own_archive_job(job_id)
+    path = ArchiveService.download_path(job.id) if job.kind == archive_service.DOWNLOAD_JOB_KIND else None
+    if job.status != 'succeeded' or not path:
+        raise NotFoundError('The download is not ready or has expired')
+    name = (job.get_result() or {}).get('download_name') or 'files.zip'
+    response = send_file(path, as_attachment=True, download_name=name)
+    response.call_on_close(lambda: os.path.exists(path) and os.remove(path))
+    return response
 
 
 # ── S3 / object-storage browser (reuses the configured backup storage creds) ──

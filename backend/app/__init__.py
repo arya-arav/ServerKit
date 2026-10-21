@@ -464,6 +464,8 @@ def create_app(config_name=None):
             CloudflareOnlyService.register_jobs()
             from app.services.speed_test_service import SpeedTestService
             SpeedTestService.register_jobs()
+            from app.services.archive_service import ArchiveService
+            ArchiveService.register_jobs()
             from app.services import login_link_service
             login_link_service.register_jobs()
             from app.services.db_admin_sso_service import DbAdminSsoService

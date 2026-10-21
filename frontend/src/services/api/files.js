@@ -522,3 +522,26 @@ export async function deleteStatusIncident(incidentId) {
 export async function getStatusBadge(slug) {
     return this.request(`/status/badge/${slug}`);
 }
+
+// Archives (fork): each returns { job_id }; poll getFileJob until it ends.
+export async function compressPaths(paths, dest, format = 'zip') {
+    return this.request('/files/compress', { method: 'POST', body: { paths, dest, format } });
+}
+
+export async function extractArchive(path, dest, overwrite = false) {
+    return this.request('/files/extract', { method: 'POST', body: { path, dest, overwrite } });
+}
+
+export async function prepareZipDownload(paths) {
+    return this.request('/files/download-zip', { method: 'POST', body: { paths } });
+}
+
+export async function getFileJob(jobId) {
+    return this.request(`/files/jobs/${encodeURIComponent(jobId)}`);
+}
+
+export async function downloadFileJob(jobId) {
+    const token = this.getToken();
+    const url = `${this.baseUrl}/files/jobs/${encodeURIComponent(jobId)}/download`;
+    window.open(`${url}?token=${encodeURIComponent(token)}`, '_blank');
+}

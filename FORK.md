@@ -116,6 +116,17 @@
   - **Ownership** (`FileService.own_like_parent`, `make_parents`, `_own_like_source`): the panel runs as root, so upstream made every copy, upload, new file and new folder `root:root`, which a site or SFTP user then can't write. Now copies keep each item's owner. New files and folders, uploads included, take the owner of the folder they land in. A replaced upload keeps its owner.
   - **Symlinks are copied as links.** Upstream's copy followed them, which could pull in files from outside the allowed roots.
   - Tests: `backend/tests/test_file_transfers.py`.
+- **File manager archives** (`services/archive_service.py`, `components/file-manager/archive.js`; `POST /files/compress`, `/files/extract`, `/files/download-zip`, `GET /files/jobs/<id>[/download]`). Upstream couldn't compress, extract, or download a folder.
+  - **Compress** (selection bar, right-click): zip, tar.gz or tar, saved in the current folder. Zip has no portable links, so symlinks are skipped (and counted). Tar keeps them as links.
+  - **Extract** (right-click on .zip/.tar/.tar.gz/.tgz/.tar.bz2/.tar.xz): into a folder, by default one named after the archive. If files would be replaced, nothing is written and you're asked first.
+  - **Download as zip:** folders and multi-item selections download as one zip. It's built in `/var/tmp/serverkit-downloads` (700/600) and deleted once sent, or after an hour.
+  - **Runs as a job** (`files.archive.*` kinds on the Queue Bus). Big archives outlast a request through Cloudflare, so the page polls the job, and the upload tray shows it while it runs. Users only see their own archive jobs.
+  - **Hostile-archive rules** (checked for every entry before anything is written):
+    - Absolute paths, drive letters and `..` are refused, and each resolved target must stay in the destination, even through existing symlinks.
+    - Links, hardlinks and devices are skipped.
+    - Limits: 20 GiB total, 200k entries, and a zip-bomb ratio check. Written bytes are capped at the declared size, and free disk space is checked first.
+    - setuid/setgid/sticky bits are dropped. Owners come from the destination folder, never from the archive.
+  - Tests: `backend/tests/test_file_archives.py`.
 - **SMTP card works without the Email extension** (`ConnectionsHub.jsx` `coreSmtpRelay`). Upstream's Settings → Connections "SMTP relay" card only called `/api/v1/email/relay*`, which only exists when the Email extension is installed. Without it, Test and Save failed with "The method is not allowed for the requested URL".
   - **Fallback:** without the extension, the card edits the panel's own SMTP connection, the same one Settings → Notifications sends with. That is the core SMTP email provider, or, while there is none, the Notifications email config (`source: 'notifications'` on test). The checkbox becomes "Send the panel's email through this server".
   - **Test before saving** (`POST /api/v1/notifications/admin/email-providers/test`, `EmailProviderService.test_config`): checks the settings in the form without storing them. A blank password reuses the stored one.

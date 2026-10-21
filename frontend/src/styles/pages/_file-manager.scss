@@ -128,7 +128,15 @@ $ft-default:  #646b7a;
                 height: 100%;
                 background: $accent-primary;
                 @include transition(width);
+
+                // A server job with no byte progress (compress, extract): pulse.
+                &.is-working { animation: fm-task-pulse 1.2s ease-in-out infinite; }
             }
+        }
+
+        @keyframes fm-task-pulse {
+            0%, 100% { opacity: 0.35; }
+            50% { opacity: 1; }
         }
 
         .upload-status {
