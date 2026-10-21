@@ -567,6 +567,14 @@
     font-size: $text-xs;
 }
 
+// Schedules tab notice when the global switch is off (fork).
+.bk-schedules-off {
+    align-items: center;
+    margin-bottom: $space-3;
+
+    span { flex: 1; }
+}
+
 // ---------- Backup history list ----------
 .backup-history-list {
     &__ico {

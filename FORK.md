@@ -64,7 +64,7 @@
   - **Base domain:** the base domain, DNS mode and HTTPS flag were read from the legacy `sites_*` settings, while Settings → Site settings writes the base-domain registry, so it always reported "no base domain".
   - **Email:** email delivery only counted provider connections, not the alert email channel in Settings → Notifications, which sends over its own SMTP settings.
   - Tests: the `registered_in_site_settings` and `alert_email_channel` cases in `backend/tests/test_setup_health.py`.
-- **"Backups scheduled" counts schedules** (`SetupHealthService._backup_policy_item`). Upstream only counted per-service backup policies, so a server backed up by a schedule from Backups → Schedules still got "nothing is being backed up". Tests: the `backup_policy` cases in `backend/tests/test_setup_health.py`.
+- **"Backups scheduled" counts schedules** (`SetupHealthService._backup_policy_item`). Upstream only counted per-service backup policies, so a server backed up by a schedule from Backups → Schedules still got "nothing is being backed up". Schedules only count while Backups → Settings → "Enable scheduled backups" is on: that switch gates every schedule and the nightly off-site cleanup, so with it off the check warns. The Schedules tab also shows a notice with an "Open settings" button. Tests: the `backup_policy` cases in `backend/tests/test_setup_health.py`.
 - **Off-site backup upkeep** (`BackupService._cleanup_remote`, `_record_remote`).
   - **Cleanup:** the daily cleanup now also deletes off-site copies older than the retention (`remote_retention_days`, defaulting to `retention_days`). Upstream pruned local copies only, so the bucket grew forever. Only objects under the destination's path prefix are touched, and nothing is swept when no prefix is set.
   - **Status:** a file backup's metadata now says `synced` after a successful upload; upstream rewrote it only for directory backups.
@@ -145,6 +145,7 @@
   - Tests: `backend/tests/test_email_provider_edit_and_test_config.py`.
 - **Scripts are executable in git** (`scripts/*.sh` that the installer chmods, and `serverkit`). Upstream tracks them as 644 and the installer chmods them, so the server's checkout always showed 12 mode-only changes.
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
+- **Site CSP allows secure websockets** (`nginx_service.py` site template). The baseline `Content-Security-Policy` listed `https:` but not `wss:`, and Chrome does not let `https:` cover websockets to another host. An app whose browser page opens a websocket to a different host, such as a game panel's console connecting to its node daemon, failed instantly with "trouble connecting".
 
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.
 

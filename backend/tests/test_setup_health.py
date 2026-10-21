@@ -209,9 +209,19 @@ def test_backup_policy_ok_with_an_enabled_schedule(app, monkeypatch):
     """Fork: schedules from Backups → Schedules count as scheduled backups."""
     from app.services.backup_service import BackupService
     monkeypatch.setattr(BackupService, 'get_config', classmethod(
-        lambda cls: {'schedules': [{'name': 'daily', 'enabled': True}]}))
+        lambda cls: {'enabled': True, 'schedules': [{'name': 'daily', 'enabled': True}]}))
     c = items_by_key(SetupHealthService.evaluate())['setup.backup_policy']
     assert c['status'] == 'ok'
+
+
+def test_backup_policy_warn_when_scheduled_backups_are_switched_off(app, monkeypatch):
+    """Fork: the global switch gates every schedule, so schedules alone aren't ok."""
+    from app.services.backup_service import BackupService
+    monkeypatch.setattr(BackupService, 'get_config', classmethod(
+        lambda cls: {'enabled': False, 'schedules': [{'name': 'daily', 'enabled': True}]}))
+    c = items_by_key(SetupHealthService.evaluate())['setup.backup_policy']
+    assert c['status'] == 'warn'
+    assert 'switched off' in c['detail']
 
 
 def test_backup_policy_warn_when_every_schedule_is_off(app, monkeypatch):

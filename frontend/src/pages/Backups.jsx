@@ -820,6 +820,20 @@ const Backups = () => {
                     <ManagedCard capability="backups_schedule" profile={managedProfile} compact />
                 ) : (
                 <>
+                    {/* The global switch gates every schedule; with it off they
+                        sit here looking active and never run (fork). */}
+                    {schedules.length > 0 && config && !config.enabled && (
+                        <div className="bk-restore-warn bk-schedules-off" role="status">
+                            <AlertTriangle size={18} />
+                            <span>
+                                <b>{t('app.backups.schedulesOffTitle', 'Scheduled backups are switched off.')}</b>{' '}
+                                {t('app.backups.schedulesOffBody', "These schedules won't run, and old off-site copies aren't cleaned up, until you turn on \"Enable scheduled backups\" in Settings.")}
+                            </span>
+                            <Button size="sm" variant="outline" onClick={() => setActiveTab('settings')}>
+                                {t('app.backups.openSettings', 'Open settings')}
+                            </Button>
+                        </div>
+                    )}
                     {schedules.length === 0 ? (
                         <EmptyState
                             icon={Clock}

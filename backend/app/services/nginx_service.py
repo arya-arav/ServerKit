@@ -270,10 +270,12 @@ limit_req_zone $server_name$binary_remote_addr zone=serverkit_wp_xmlrpc:10m rate
     # the CSP is deliberately permissive so it does not break managed apps while
     # still satisfying "a CSP is present" and blocking cross-origin framing.
     # Tighten the CSP per-app when the upstream can support a stricter policy.
+    # wss: is listed because 'https:' does not cover secure websockets to other
+    # hosts in Chrome (e.g. a game panel's console talking to its node daemon).
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; frame-ancestors 'self'; upgrade-insecure-requests" always;
+    add_header Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss:; frame-ancestors 'self'; upgrade-insecure-requests" always;
 '''
 
     SSL_REDIRECT_TEMPLATE = '''server {{

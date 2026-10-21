@@ -356,10 +356,19 @@ class SetupHealthService:
         # BackupPolicy; they back things up just the same. Fork: arya-arav/ServerKit.
         try:
             from app.services.backup_service import BackupService
-            schedules = [s for s in BackupService.get_config().get('schedules', [])
-                         if s.get('enabled', True)]
+            config = BackupService.get_config()
+            schedules = [s for s in config.get('schedules', []) if s.get('enabled', True)]
+            switched_on = bool(config.get('enabled'))
         except Exception:  # noqa: BLE001
-            schedules = []
+            schedules, switched_on = [], False
+        # The global switch gates every schedule (and the nightly off-site
+        # cleanup): with it off, schedules exist but nothing runs.
+        if schedules and not switched_on:
+            return _item(
+                'setup.backup_policy', 'Backups scheduled', 'warn',
+                f'{len(schedules)} backup schedule(s) exist, but scheduled backups '
+                'are switched off (Backups → Settings → Enable scheduled backups), '
+                'so none of them run.', RECOMMENDED, _link('/backups/settings'))
         if schedules:
             return _item(
                 'setup.backup_policy', 'Backups scheduled', 'ok',
