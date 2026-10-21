@@ -83,7 +83,7 @@
   - Tests: `TestCloudflareCredentialsFile` in `backend/tests/test_advanced_ssl_hardening.py`.
 - **Sidebar collapse toggle and an app top bar** (`Sidebar.jsx`, `AppTopBar.jsx`, `AccountMenu.jsx`, `layout/_app-topbar.scss`).
   - **Collapse / Expand:** a labelled button at the bottom-left of the sidebar (icon only in the rail), and Ctrl+B, switch between the full sidebar and a narrow icon rail. The page column stretches and narrows with it, both animated, and the choice is remembered. Upstream only offered the rail inside the user menu's Layout switcher.
-  - **The rail stays narrow:** it no longer opens over the page on hover; each icon shows its name as a tooltip instead.
+  - **The rail stays narrow:** it no longer opens over the page on hover; each icon shows its name in a styled tooltip with an arrow beside the rail instead (`.rail-tip`).
   - **App top bar:** a slim bar across the page column carries the notification bell and the account menu at the top right. Page content starts below it, and full-page tools subtract its height.
   - **Where the account stays:** on mobile and in the top-bar layout there is no app top bar, so the account stays in the sidebar there.
   - **The "+" button:** the brand row's quick-create button is gone; the command palette it opened is still Ctrl+K, and the mobile top bar keeps its "+". The brand row's "Star on GitHub" link is gone too, and toasts pop up at the bottom right (above the status bar) instead of over the top bar.

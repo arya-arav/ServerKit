@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth.js';
 import { useTheme } from '../contexts/useTheme.js';
@@ -45,9 +45,8 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             aria-label={collapsed
                 ? t('nav.expandSidebarLong', 'Expand the sidebar')
                 : t('nav.collapseSidebarLong', 'Collapse the sidebar')}
-            title={collapsed
-                ? t('nav.expandSidebarHint', 'Expand (Ctrl+B)')
-                : t('nav.collapseSidebarHint', 'Collapse (Ctrl+B)')}
+            title={collapsed ? undefined : t('nav.collapseSidebarHint', 'Collapse (Ctrl+B)')}
+            data-rail-tip={collapsed ? t('nav.expandSidebarHint', 'Expand (Ctrl+B)') : undefined}
         >
             {collapsed
                 ? <PanelLeftOpen size={18} aria-hidden="true" />
@@ -57,6 +56,38 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             </span>
         </SharedButton>
     );
+
+    // Rail tooltips: one floating label beside the hovered or focused icon.
+    // It is drawn outside .nav-scroll so the scroll container cannot clip it,
+    // and positioned imperatively (no inline style props). Fork: arya-arav/ServerKit.
+    const railTips = collapsed && collapsible;
+    const tipRef = useRef(null);
+    const [tipText, setTipText] = useState(null);
+    const tipAnchor = useRef(null);
+    const showTip = (e) => {
+        if (!railTips) return;
+        const el = e.target.closest?.('[data-rail-tip]');
+        if (!el || !sidebarRef.current?.contains(el)) {
+            setTipText(null);
+            return;
+        }
+        tipAnchor.current = el;
+        setTipText(el.dataset.railTip);
+    };
+    const hideTip = () => setTipText(null);
+
+    useLayoutEffect(() => {
+        const tip = tipRef.current;
+        const el = tipAnchor.current;
+        if (!tip || !el || !tipText) return;
+        const rect = el.getBoundingClientRect();
+        tip.style.top = `${rect.top + rect.height / 2}px`;
+        tip.style.left = `${rect.right + 12}px`;
+    }, [tipText]);
+
+    useEffect(() => {
+        if (!railTips) setTipText(null);
+    }, [railTips]);
 
     useShortcut({
         id: 'toggle-sidebar',
@@ -278,7 +309,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         to={item.route}
                         className={({ isActive }) => `nav-item ${isActive || groupActive ? 'active' : ''}`}
                         end={item.end || hasChildren}
-                        title={collapsed && collapsible ? label(item) : undefined}
+                        data-rail-tip={railTips ? label(item) : undefined}
                     >
                         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             aria-hidden="true" focusable="false"
@@ -305,7 +336,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         key={sub.id}
                         to={sub.route}
                         className={({ isActive }) => `nav-item nav-sub-item ${isActive ? 'active' : ''}`}
-                        title={collapsed && collapsible ? label(sub) : undefined}
+                        data-rail-tip={railTips ? label(sub) : undefined}
                     >
                         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             aria-hidden="true" focusable="false"
@@ -324,6 +355,12 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             id="primary-navigation"
             className={`sidebar${mobileOpen ? ' sidebar--mobile-open' : ''}`}
             aria-label={t('nav.mainNavigation', 'Main navigation')}
+            onMouseOver={railTips ? showTip : undefined}
+            onMouseLeave={railTips ? hideTip : undefined}
+            onFocus={railTips ? showTip : undefined}
+            onBlur={railTips ? hideTip : undefined}
+            onScrollCapture={railTips ? hideTip : undefined}
+            onClick={railTips ? hideTip : undefined}
         >
             {isMobile && (
                 <SharedButton variant="unstyled"
@@ -453,6 +490,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                     </div>
                 )}
             </div>
+            {railTips && tipText && (
+                <div ref={tipRef} className="rail-tip" aria-hidden="true">{tipText}</div>
+            )}
         </aside>
     );
 };

@@ -859,3 +859,47 @@
         }
     }
 }
+
+// Rail tooltip (Sidebar.jsx): the hovered icon's name in a high-contrast
+// label with an arrow, beside the narrow rail. Positioned from JS. Fork.
+.rail-tip {
+    position: fixed;
+    z-index: $z-tooltip;
+    transform: translateY(-50%);
+    padding: $space-tight $space-3;
+    border-radius: $radius-control;
+    background: var(--text-primary);
+    color: var(--surface);
+    box-shadow: $shadow-raised;
+    font-size: $text-sm;
+    font-weight: $font-weight-medium;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: railTipIn 0.12s ease-out;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        inset-inline-start: -4px;
+        width: 8px;
+        height: 8px; // geometry: tooltip arrow
+        background: inherit;
+        transform: translateY(-50%) rotate(45deg);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@keyframes railTipIn {
+    from {
+        opacity: 0;
+        transform: translate(-4px, -50%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(0, -50%);
+    }
+}
