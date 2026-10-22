@@ -34,6 +34,7 @@ import {
 } from './contributions';
 import { getRuntimeLoadState, isRuntimeFrontend } from './runtime/loader';
 import { ExtensionErrorBoundary, ExtensionFailureCard } from './runtime/ExtensionBoundary';
+import GroupTabShell from './GroupTabShell';
 import { t } from '../i18n/t';
 
 function devWarn(msg) {
@@ -70,15 +71,16 @@ function buildRoute(contrib, key, frontends) {
         );
         return null;
     }
+    const page = (
+        <ExtensionErrorBoundary slug={contrib.plugin}>
+            <Component />
+        </ExtensionErrorBoundary>
+    );
     return (
         <Route
             key={key}
             path={contrib.path}
-            element={(
-                <ExtensionErrorBoundary slug={contrib.plugin}>
-                    <Component />
-                </ExtensionErrorBoundary>
-            )}
+            element={contrib.group ? <GroupTabShell group={contrib.group}>{page}</GroupTabShell> : page}
         />
     );
 }

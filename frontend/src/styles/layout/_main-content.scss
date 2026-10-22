@@ -167,6 +167,10 @@
     &__inner { @include page-shell-inner; }
 }
 
+// Extension tabs get the gutter from their group shell (GroupTabShell); one
+// that also wraps itself must not pad twice (fork).
+.sk-ext-tab .sk-tabgroup__inner { padding: 0; }
+
 // REMOVED: `.page-header` (the old <div class="page-header"><h1>…</h1></div>
 // block). Every page now gets its bar from PageTopbar — either titleless via
 // TabGroupLayout (the default) or titled for standalone/entity pages. Bespoke
