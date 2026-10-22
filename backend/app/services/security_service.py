@@ -823,34 +823,74 @@ class SecurityService:
             return checks
 
         try:
-            with open(ssh_config_path, 'r') as f:
-                config = f.read()
+            # The settings sshd actually uses (fork). Upstream substring-matched
+            # the main file only: drop-ins in sshd_config.d (where cloud images
+            # and hardening put them) were ignored, and a commented-out
+            # "#PermitRootLogin no" counted as a pass.
+            effective = cls._effective_sshd_config(ssh_config_path)
 
             checks['total_checks'] += 1
-            if 'PermitRootLogin no' in config or 'PermitRootLogin prohibit-password' in config:
+            if effective.get('permitrootlogin', 'prohibit-password') in ('no', 'prohibit-password', 'without-password'):
                 checks['passed_checks'] += 1
                 checks['findings'].append({'severity': 'pass', 'message': 'Root login is restricted'})
             else:
                 checks['findings'].append({'severity': 'warning', 'message': 'Root login may be enabled'})
 
             checks['total_checks'] += 1
-            if 'PasswordAuthentication no' in config:
+            if (effective.get('passwordauthentication') == 'no'
+                    and effective.get('kbdinteractiveauthentication', 'no') == 'no'):
                 checks['passed_checks'] += 1
                 checks['findings'].append({'severity': 'pass', 'message': 'Password authentication disabled'})
             else:
                 checks['findings'].append({'severity': 'info', 'message': 'Password authentication is enabled'})
 
-            checks['total_checks'] += 1
-            if 'Port 22' in config or 'Port' not in config:
+            # Informational only: with key-only logins the port is not a weakness.
+            if effective.get('port', '22') == '22':
                 checks['findings'].append({'severity': 'info', 'message': 'SSH running on default port 22'})
             else:
-                checks['passed_checks'] += 1
-                checks['findings'].append({'severity': 'pass', 'message': 'SSH running on non-default port'})
+                checks['findings'].append({'severity': 'info', 'message': f"SSH running on port {effective['port']}"})
 
         except Exception as e:
             checks['findings'].append({'severity': 'error', 'message': f'Failed to read SSH config: {e}'})
 
         return checks
+
+    @staticmethod
+    def _effective_sshd_config(main_path: str = '/etc/ssh/sshd_config') -> Dict[str, str]:
+        """sshd's effective global settings, lower-cased keys.
+
+        ``sshd -T`` merges the main file, every Include and the defaults
+        exactly as sshd does. Without it (not root, odd distro) parse the
+        files the same way: drop-ins first, first value wins, comments and
+        Match blocks ignored.
+        """
+        res = run_privileged(['sshd', '-T'], timeout=10)
+        if res.returncode == 0 and res.stdout:
+            out = {}
+            for line in res.stdout.splitlines():
+                key, _, value = line.strip().partition(' ')
+                if key:
+                    out.setdefault(key.lower(), value.strip().lower())
+            return out
+
+        import glob
+        files = sorted(glob.glob('/etc/ssh/sshd_config.d/*.conf')) + [main_path]
+        out = {}
+        for path in files:
+            try:
+                with open(path, 'r') as f:
+                    for raw in f:
+                        line = raw.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        key, _, value = line.partition(' ')
+                        if key.lower() == 'match':
+                            break
+                        if key.lower() != 'include':
+                            out.setdefault(key.lower(), value.strip().lower())
+            except OSError:
+                continue
+        return out
 
     @classmethod
     def _audit_firewall(cls) -> Dict:
@@ -913,14 +953,28 @@ class SecurityService:
         checks['total_checks'] += 1
         try:
             if PackageManager.detect() == 'apt':
-                result = run_checked(['apt', 'list', '--upgradable'], timeout=60)
+                # What `apt upgrade` would install now (fork). `apt list
+                # --upgradable` also lists Ubuntu's phased updates, which apt
+                # deliberately holds back for days, so a fully patched server
+                # never read "up to date".
+                result = run_checked(['apt-get', '-s', '-o', 'Debug::NoLocking=1', 'upgrade'],
+                                     timeout=60, env={**os.environ, 'LC_ALL': 'C'})
                 if result['success']:
-                    lines = [l for l in result['output'].split('\n') if '/' in l]
-                    if len(lines) == 0:
+                    output = result['output']
+                    pending = sum(1 for l in output.split('\n') if l.startswith('Inst '))
+                    phased = 0
+                    if 'deferred due to phasing' in output:
+                        tail = output.split('deferred due to phasing:', 1)[1]
+                        for l in tail.split('\n')[1:]:
+                            if not l.startswith(' '):
+                                break
+                            phased += len(l.split())
+                    if pending == 0:
                         checks['passed_checks'] += 1
-                        checks['findings'].append({'severity': 'pass', 'message': 'System is up to date'})
+                        note = f' ({phased} phased updates arriving gradually)' if phased else ''
+                        checks['findings'].append({'severity': 'pass', 'message': f'System is up to date{note}'})
                     else:
-                        checks['findings'].append({'severity': 'warning', 'message': f'{len(lines)} updates available'})
+                        checks['findings'].append({'severity': 'warning', 'message': f'{pending} updates available'})
             else:
                 checks['findings'].append({'severity': 'info', 'message': 'Update check not supported'})
         except Exception:
