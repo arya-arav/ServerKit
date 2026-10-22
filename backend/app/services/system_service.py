@@ -213,18 +213,7 @@ class SystemService:
         # Get kernel version (on Linux, platform.release() gives kernel version)
         kernel = platform.release()
 
-        # Get CPU model info
-        cpu_model = platform.processor() or 'Unknown'
-        # Try to get more detailed CPU info on Linux
-        if platform.system() == 'Linux':
-            try:
-                with open('/proc/cpuinfo', 'r') as f:
-                    for line in f:
-                        if line.startswith('model name'):
-                            cpu_model = line.split(':')[1].strip()
-                            break
-            except Exception:
-                pass
+        cpu_model = cls._cpu_model()
 
         return {
             'platform': platform.system(),
@@ -245,6 +234,42 @@ class SystemService:
                 'architecture': platform.machine()
             }
         }
+
+    _cpu_model_cache = None
+
+    @classmethod
+    def _cpu_model(cls):
+        """The CPU's marketing name, e.g. "AMD EPYC 7763" or "ARM Neoverse-N1".
+
+        x86 kernels put it in /proc/cpuinfo ("model name"); ARM kernels don't
+        (only implementer/part codes), and platform.processor() is empty on
+        Linux, so ARM hosts showed "Unknown". lscpu decodes the ARM part
+        codes. Cached: the CPU doesn't change while the panel runs. Fork.
+        """
+        if cls._cpu_model_cache:
+            return cls._cpu_model_cache
+        model = None
+        if platform.system() == 'Linux':
+            try:
+                with open('/proc/cpuinfo', 'r') as f:
+                    for line in f:
+                        if line.startswith('model name'):
+                            model = line.split(':', 1)[1].strip()
+                            break
+            except OSError:
+                pass
+            if not model:
+                res = run_checked(['lscpu'], timeout=10, env={**os.environ, 'LC_ALL': 'C'})
+                if res.get('success'):
+                    fields = {}
+                    for line in res.get('output', '').splitlines():
+                        key, _, value = line.partition(':')
+                        fields.setdefault(key.strip(), value.strip())
+                    name, vendor = fields.get('Model name'), fields.get('Vendor ID')
+                    if name and name != '-':
+                        model = name if not vendor or vendor.lower() in name.lower() else f'{vendor} {name}'
+        cls._cpu_model_cache = model or platform.processor() or 'Unknown'
+        return cls._cpu_model_cache
 
     @staticmethod
     def _get_primary_ip():
