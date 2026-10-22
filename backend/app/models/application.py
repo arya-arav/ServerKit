@@ -341,6 +341,19 @@ class Application(JsonColumnMixin, TimestampMixin, SoftDeleteMixin, db.Model):
         return f'<Application {self.name}>'
 
 
+@db.event.listens_for(Application, 'before_insert')
+def _mark_new_app_for_auto_slots(mapper, connection, target):
+    """New apps get zero-downtime deploys without anyone opting in: mark them,
+    and the deploy turns A/B slots on once they qualify (SlotDeployService.
+    auto_enable). One place covers every creation path (apps, docker, python,
+    templates, imports, manifests, pipelines). Only marks; no queries in a flush."""
+    try:
+        from app.services.deploy_settings import set_internal
+        set_internal(target, 'slots_auto', True)
+    except Exception:  # noqa: BLE001 - never block creating an app
+        pass
+
+
 @db.event.listens_for(Application, 'before_delete')
 def _clear_cron_association(mapper, connection, target):
     """Cron jobs are never silently deleted with an app — they fall back to the

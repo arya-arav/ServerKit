@@ -34,6 +34,10 @@ DEFAULTS = {
     'compose_web': None,
     'compose_web_port': None,
     'compose_data_split': False,
+    # Set on every app created from now on (models/application.py): its deploys
+    # switch to A/B slots by themselves once it has a live release and qualifies.
+    # Apps that existed before keep their choice.
+    'slots_auto': False,
 }
 
 # key -> (type, min, max). Anything outside is rejected, not clamped: a typo'd

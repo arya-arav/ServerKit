@@ -268,8 +268,12 @@ class SlotDeployService:
     @classmethod
     def status(cls, app) -> Dict:
         rows = {row.slot: row for row in AppSlot.query.filter_by(application_id=app.id).all()}
+        from app.models.system_settings import SystemSettings
         return {
             'enabled': bool(app.slot_deploys_enabled),
+            # slots turn on by themselves at a coming deploy (auto_enable)
+            'auto': bool(not app.slot_deploys_enabled and deploy_settings.get(app, 'slots_auto')
+                         and SystemSettings.get(cls.AUTO_SETTING, True) is not False),
             'active_slot': app.active_slot,
             'eligibility': cls.eligibility(app),
             'volumes': sorted(v.name for v in app.volumes),
@@ -299,11 +303,53 @@ class SlotDeployService:
                     'error': 'This service\'s stateful containers live in a shared data project now; '
                              'it keeps deploying through slots.'}
         # Opting out keeps the slots until the next deploy, which goes back to
-        # the in-place path and folds them away (release_slots).
+        # the in-place path and folds them away (release_slots). It also ends
+        # auto slots for this app, or the next deploy would opt it back in.
         app.slot_deploys_enabled = False
+        deploy_settings.set_internal(app, 'slots_auto', False)
         db.session.commit()
         return {'success': True, 'slots': cls.status(app),
                 'note': 'The next deploy replaces the app in place again.'}
+
+    AUTO_SETTING = 'slot_deploys_auto'   # panel-wide switch, on unless set to false
+
+    @classmethod
+    def auto_enable(cls, app, log=None) -> bool:
+        """Zero-downtime by default: called at the start of every deploy.
+
+        An app created since auto slots exist (``slots_auto``) is moved onto A/B
+        slots as soon as that is safe: it has a live release to protect and it
+        passes :meth:`eligibility`. When it does not qualify, the deploy goes in
+        place as before and the log says why, so nobody wonders. Never raises:
+        a problem here must not fail a deploy that would otherwise work.
+        """
+        try:
+            if app.slot_deploys_enabled or not deploy_settings.get(app, 'slots_auto'):
+                return False
+            from app.models.system_settings import SystemSettings
+            if SystemSettings.get(cls.AUTO_SETTING, True) is False:
+                return False
+            from app.models.deployment import Deployment
+            if Deployment.get_current(app.id) is None:
+                _log(log, 'Zero-downtime: first deploy goes in place (nothing live yet); '
+                          'the next ones switch to A/B slots if this service qualifies.')
+                return False
+            verdict = cls.eligibility(app)
+            if not verdict['eligible']:
+                _log(log, 'Zero-downtime: deploying in place because '
+                          + ' '.join(verdict['reasons']))
+                return False
+            result = cls.set_enabled(app, True)
+            if not result.get('success'):
+                _log(log, f"Zero-downtime: could not switch to A/B slots ({result.get('error')}); "
+                          'deploying in place.')
+                return False
+            _log(log, 'Zero-downtime: A/B slot deploys turned on for this service. The new '
+                      'release boots beside the live one and only takes over once healthy.')
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('auto slot enable failed for app %s: %s', getattr(app, 'id', '?'), exc)
+            return False
 
     @classmethod
     def switch_back(cls, app, user_id=None, log=None) -> Dict:

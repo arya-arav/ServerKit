@@ -6636,6 +6636,8 @@
             "watchHint": "How long a release is watched after it goes live. If it stops answering in that time, traffic goes back to the previous release. 0 turns the watch off."
         },
         "slots": {
+            "auto": "Auto",
+            "autoNext": "This service qualifies, and its next deploy switches to slot deploys on its own.",
             "eligible": "This service qualifies.",
             "explain": "A deploy boots the new release beside the live one, checks that it answers, then switches traffic over. A release that fails never replaces the working one, and the previous release stays ready for an instant switch back.",
             "live": "Live",

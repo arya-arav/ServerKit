@@ -102,8 +102,12 @@ export default function SlotsCard({ app }) {
         <div className="overview-tab__card overview-tab__card--full slots-card">
             <div className="overview-tab__card-header-row">
                 <h3 className="overview-tab__card-title">{t('app.slots.title', 'Slot deploys')}</h3>
-                <Pill kind={state.enabled ? 'green' : 'gray'}>
-                    {state.enabled ? t('app.slots.on', 'On') : t('app.slots.off', 'Off')}
+                <Pill kind={state.enabled ? 'green' : state.auto && state.eligibility.eligible ? 'cyan' : 'gray'}>
+                    {state.enabled
+                        ? t('app.slots.on', 'On')
+                        : state.auto && state.eligibility.eligible
+                            ? t('app.slots.auto', 'Auto')
+                            : t('app.slots.off', 'Off')}
                 </Pill>
             </div>
 
@@ -146,7 +150,11 @@ export default function SlotsCard({ app }) {
                     <p className="slots-card__hint">
                         {t('app.slots.explain', 'A deploy boots the new release beside the live one, checks that it answers, then switches traffic over. A release that fails never replaces the working one, and the previous release stays ready for an instant switch back.')}
                     </p>
-                    {state.eligibility.eligible ? (
+                    {state.eligibility.eligible && state.auto ? (
+                        <p className="slots-card__hint">
+                            {t('app.slots.autoNext', 'This service qualifies, and its next deploy switches to slot deploys on its own.')}
+                        </p>
+                    ) : state.eligibility.eligible ? (
                         <p className="slots-card__hint">
                             {t('app.slots.eligible', 'This service qualifies.')}{' '}
                             <Link to={`/services/${app.id}/settings/health`}>

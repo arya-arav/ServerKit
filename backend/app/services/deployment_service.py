@@ -351,6 +351,7 @@ class DeploymentService:
         db.session.commit()
 
         from app.services.slot_deploy_service import SlotDeployService, SlotDeployError
+        SlotDeployService.auto_enable(app, log=log_callback)
         if app.slot_deploys_enabled:
             # A/B slots: the project boots as <name>-<idle slot>
             # beside the live one instead of recreating it in place.
@@ -450,6 +451,7 @@ class DeploymentService:
         volumes = VolumeService.run_args(app)
 
         from app.services.slot_deploy_service import SlotDeployService
+        SlotDeployService.auto_enable(app, log=log_callback)
         if app.slot_deploys_enabled:
             # A/B slots: boot beside the live release, gate,
             # switch, watch. Eligibility is re-checked on every deploy; an app
