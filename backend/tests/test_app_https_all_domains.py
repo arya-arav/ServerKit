@@ -70,6 +70,7 @@ def test_names_without_dns_are_skipped_not_fatal(app, certbot, vhost, monkeypatc
     from app.models.domain import Domain
     from app.services.site_domain_service import SiteDomainService
     monkeypatch.setattr(SiteDomainService, '_resolves', staticmethod(lambda name: not name.startswith('www.')))
+    monkeypatch.setattr(SiteDomainService, '_names_on_certificate', classmethod(lambda cls, cert_name: set()))
     a = _app_with_domains(db)
 
     result = SiteDomainService.enable_app_https(a, 'ops@example.com')
@@ -79,6 +80,24 @@ def test_names_without_dns_are_skipped_not_fatal(app, certbot, vhost, monkeypatc
     assert result['skipped'] == ['www.shop.example.com']
     alias = Domain.query_active().filter_by(name='www.shop.example.com').first()
     assert alias.ssl_enabled is False
+
+
+def test_a_name_already_on_the_certificate_is_never_dropped(app, certbot, vhost, monkeypatch):
+    """The server's resolver can still cache NXDOMAIN for a record that was just
+    created. Re-issuing without that name would take HTTPS away from it while the
+    vhost still serves it, so a name the certificate already covers stays in."""
+    from app import db
+    from app.services.site_domain_service import SiteDomainService
+    monkeypatch.setattr(SiteDomainService, '_resolves', staticmethod(lambda name: not name.startswith('www.')))
+    monkeypatch.setattr(SiteDomainService, '_names_on_certificate',
+                        classmethod(lambda cls, cert_name: {'shop.example.com', 'www.shop.example.com'}))
+    a = _app_with_domains(db)
+
+    result = SiteDomainService.enable_app_https(a, 'ops@example.com')
+
+    assert result['success'] is True and result['skipped'] == []
+    assert certbot == [{'domains': ['shop.example.com', 'www.shop.example.com'],
+                        'cert_name': 'shop.example.com'}]
 
 
 def test_no_resolvable_name_requests_nothing(app, certbot, vhost, monkeypatch):

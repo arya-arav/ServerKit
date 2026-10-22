@@ -599,6 +599,18 @@ class SiteDomainService:
             return False
 
     @classmethod
+    def _names_on_certificate(cls, cert_name):
+        """Domains the certbot lineage ``cert_name`` covers today (empty if none)."""
+        from app.services.ssl_service import SSLService
+        try:
+            for cert in SSLService.list_certificates():
+                if cert.get('name') == cert_name:
+                    return set(cert.get('domains') or [])
+        except Exception:  # noqa: BLE001 - a failed inventory just means "no help"
+            pass
+        return set()
+
+    @classmethod
     def enable_app_https(cls, app, email):
         """Issue ONE certificate covering every domain of ``app`` and publish it.
 
@@ -623,6 +635,14 @@ class SiteDomainService:
         names, skipped = [], []
         for row in rows:
             (names if cls._resolves(row.name) else skipped).append(row.name)
+        if skipped and names:
+            # A name this host cannot resolve right now (a new record still cached as
+            # NXDOMAIN, say) but that the certificate already covers stays in: the
+            # lookup is only a pre-check, the CA validates from outside, and leaving
+            # it out would re-issue the certificate WITHOUT a name the vhost serves.
+            covered = cls._names_on_certificate(names[0])
+            names += [name for name in skipped if name in covered]
+            skipped = [name for name in skipped if name not in covered]
         if not names:
             return {'success': False,
                     'error': 'None of the domains resolve in DNS yet: ' + ', '.join(skipped)}
