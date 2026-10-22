@@ -380,7 +380,7 @@ class FileIntegrityService:
             if result['total_changes'] > 0:
                 sample = (result['added'] + result['removed']
                           + [m['path'] for m in result['modified']])[:NOTIFY_SAMPLE_CAP]
-                cls._notify(scope, result['counts'], sample)
+                cls._notify(scope, result['counts'], sample, result)
         return results
 
     # ------------------------------------------------------------------ #
@@ -438,7 +438,8 @@ class FileIntegrityService:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def _notify(cls, scope: str, counts: Dict, sample_paths: List[str]) -> None:
+    def _notify(cls, scope: str, counts: Dict, sample_paths: List[str],
+                result: Optional[Dict] = None) -> None:
         try:
             from app.plugins_sdk import notify
             notify.send(
@@ -448,11 +449,42 @@ class FileIntegrityService:
                     'scope': scope,
                     'counts': counts,
                     'sample_paths': sample_paths,
+                    **cls._describe_changes(scope, counts, result or {}),
                 },
                 category='security',
             )
         except Exception as exc:  # never let a notification failure break a check
             logger.debug('notify %s failed: %s', FIM_EVENT_KEY, exc)
+
+    @staticmethod
+    def _describe_changes(scope: str, counts: Dict, result: Dict) -> Dict:
+        """``summary`` + ``facts`` for the generic email/in-app template (fork).
+
+        The event used to carry only scope/counts/sample_paths, which the
+        generic template doesn't render, so the email said "changes detected"
+        and nothing about which files.
+        """
+        where = {'nginx': 'nginx configuration', 'systemd': 'systemd units'}.get(scope)
+        if where is None:
+            match = _APP_SCOPE_RE.match(scope)
+            where = f'app #{match.group(1)} files' if match else scope
+        total = sum(counts.values())
+        lines = ([f'added: {p}' for p in result.get('added', [])]
+                 + [f'removed: {p}' for p in result.get('removed', [])]
+                 + [f"modified ({', '.join(m['what'])}): {m['path']}" for m in result.get('modified', [])])
+        shown = lines[:NOTIFY_SAMPLE_CAP]
+        more = f' (+{total - len(shown)} more)' if total > len(shown) else ''
+        summary = (f"{total} file{'s' if total != 1 else ''} changed in the {where} "
+                   f"since the last accepted baseline: " + '; '.join(shown) + more
+                   + '. If you made this change, accept it in Security → File integrity; '
+                     'otherwise investigate.')
+        facts = [{'label': 'Area', 'value': where}]
+        for key in ('modified', 'added', 'removed'):
+            if counts.get(key):
+                facts.append({'label': key.capitalize(), 'value': str(counts[key])})
+        if result.get('baseline_created_at'):
+            facts.append({'label': 'Baseline from', 'value': result['baseline_created_at'][:16].replace('T', ' ') + ' UTC'})
+        return {'summary': summary, 'facts': facts}
 
     # ------------------------------------------------------------------ #
     # Job registration

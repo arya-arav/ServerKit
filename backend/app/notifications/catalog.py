@@ -234,6 +234,7 @@ _LINKS = {
     'restore.failed': '/backups',
     # security
     'security.alert': '/security',
+    'integrity.changed': '/security/integrity',
     # apps / deploys
     'app.deployed': '/services',
     'app.deploy_aborted': '/services',
