@@ -148,6 +148,8 @@
 - **Let's Encrypt behind the dotfile deny.** The nginx configs use `location ^~ /.well-known/acme-challenge/`. Without `^~`, the regex `location ~ /\.` (deny all) wins, and certbot's HTTP-01 challenge gets a 403.
 - **Site CSP allows secure websockets** (`nginx_service.py` site template). The baseline `Content-Security-Policy` listed `https:` but not `wss:`, and Chrome does not let `https:` cover websockets to another host. An app whose browser page opens a websocket to a different host, such as a game panel's console connecting to its node daemon, failed instantly with "trouble connecting".
 
+- **Backups verify themselves, database dumps included** (`backup_verify_service.py`, `backup_policy_service.py`). Policy runs never wrote their manifest or ran the tier-1 verifier, so every new backup showed "not verified" with no stored checksum. They now do both after each successful run (best-effort, a verifier problem never fails the backup). The verifier also opened every backup as a tar, so a gzip'd SQL dump (every database backup) read as "invalid header" and Doctor's Repair recorded a failure for a good dump; a plain gzip file is now read through to the end instead. A single-file run (a database dump or a path-list archive) records only its own checksum, rather than hashing the whole shared backups folder and overwriting one `manifest.json` there.
+
 The panel's "update available" notice still watches upstream releases, so it tells you when there is something new to merge.
 
 ## Taking upstream updates

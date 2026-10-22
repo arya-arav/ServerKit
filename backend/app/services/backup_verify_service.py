@@ -18,6 +18,7 @@ Everything here is cross-platform: the listing falls back to Python's
 ``tarfile`` where GNU ``tar`` is unavailable (e.g. Windows dev), and the hash is
 computed in Python.
 """
+import gzip
 import hashlib
 import json
 import logging
@@ -78,9 +79,14 @@ def write_manifest(run, meta):
     base = _base_dir(run, meta)
     primary = meta.get('primary_archive')
     primary_name = os.path.basename(primary) if primary else None
+    # Only a run that owns a directory lists it. A single-file run (a database
+    # dump, a files path-list archive) lives in a folder shared with every other
+    # run, so listing it would hash all of them and clobber one manifest.json;
+    # for those the primary's hash is recorded on the run row only.
+    own_dir = bool(run.storage_path) and os.path.isdir(run.storage_path)
 
     artifacts = []
-    if os.path.isdir(base):
+    if own_dir and os.path.isdir(base):
         for entry in sorted(os.listdir(base)):
             if entry == MANIFEST_NAME:
                 continue
@@ -132,7 +138,7 @@ def write_manifest(run, meta):
     if primary_sha256:
         run.checksum_sha256 = primary_sha256
 
-    if os.path.isdir(base):
+    if own_dir and os.path.isdir(base):
         try:
             with open(os.path.join(base, MANIFEST_NAME), 'w', encoding='utf-8') as fh:
                 json.dump(manifest, fh, indent=2)
@@ -171,14 +177,50 @@ def _tool_versions():
 # --------------------------------------------------------------------------- #
 
 def _list_archive(path):
-    """Return ``(ok, member_count, error)`` for a tar/tar.gz archive, using
-    Python's ``tarfile`` so it works cross-platform."""
+    """Return ``(ok, member_count, error)`` for a backup artifact, using
+    Python's ``tarfile``/``gzip`` so it works cross-platform.
+
+    Tar archives (any compression) list their members. A gzip file that is not a
+    tar — the shape of every database backup (``*.sql.gz``) — is read through
+    to the end instead and counts as one member; opening it as a tar used to
+    report every database dump as unreadable."""
     try:
         with tarfile.open(path, 'r:*') as tar:
             members = tar.getmembers()
         return True, len(members), None
     except Exception as exc:  # noqa: BLE001 — any read failure means unreadable
-        return False, 0, str(exc)
+        if not _is_plain_gzip(path):
+            return False, 0, str(exc)
+    return _read_gzip_through(path)
+
+
+_GZIP_MAGIC = b'\x1f\x8b'
+
+
+def _is_plain_gzip(path):
+    """True for a gzip file whose content is not a tar archive (a broken
+    .tar.gz must keep failing as a tar, not pass as a gzip'd blob)."""
+    try:
+        with open(path, 'rb') as fh:
+            if fh.read(2) != _GZIP_MAGIC:
+                return False
+        with gzip.open(path, 'rb') as gz:
+            head = gz.read(512)
+    except (OSError, EOFError):
+        return True  # gzip framing is there; _read_gzip_through reports the damage
+    return head[257:262] != b'ustar'
+
+
+def _read_gzip_through(path):
+    """Decompress a gzip file to the end; any CRC/length/truncation error makes
+    it unreadable."""
+    try:
+        with gzip.open(path, 'rb') as gz:
+            while gz.read(_HASH_CHUNK):
+                pass
+        return True, 1, None
+    except (OSError, EOFError) as exc:  # zlib.error is an OSError subclass here
+        return False, 0, f'gzip stream is corrupt: {exc}'
 
 
 def _stored_sha256(run, meta):

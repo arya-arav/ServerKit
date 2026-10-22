@@ -543,6 +543,17 @@ class BackupPolicyService:
             run.storage_path = storage_path
             run.set_metadata(meta)
 
+            # Manifest + tier-1 verification, as backup_verify_service promises for
+            # every policy run: stores the primary checksum on the run and moves it
+            # up the verify ladder (none -> listed -> hashed). Best-effort — a
+            # verifier problem must never discard a good backup.
+            try:
+                from app.services import backup_verify_service
+                backup_verify_service.write_manifest(run, meta)
+                backup_verify_service.verify_run_tier1(run, meta)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning('Tier-1 verification failed for run %s: %s', run_id, exc)
+
             # Remote copy (upload + verify) — best-effort; a remote failure must
             # not discard the good local backup.
             if policy.remote_copy:
