@@ -400,7 +400,8 @@ def create_app(config_name=None):
         )
         from app.utils.env import env_bool
         _skip_background = env_bool('SERVERKIT_SKIP_BACKGROUND') or _cli_one_shot
-        if not _skip_background:
+
+        def _start_background():
             # Before any consumer polls: release what the previous process
             # left in flight, or it stays stranded forever.
             if not app.config.get('TESTING'):
@@ -512,6 +513,13 @@ def create_app(config_name=None):
             # panel is paired.
             from app.services import connect_client
             connect_client.start_client_if_paired(app)
+
+        if not _skip_background:
+            # One process owns all of the above; a second one (a script that
+            # imports the app while the panel runs) must not fail the panel's
+            # running jobs or start duplicate consumers (fork).
+            from app.utils.background_owner import run_as_background_owner
+            run_as_background_owner(app, _start_background)
 
     # Request body size limit
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
