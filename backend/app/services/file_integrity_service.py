@@ -349,6 +349,60 @@ class FileIntegrityService:
         return result
 
     @classmethod
+    def record_managed_write(cls, *paths: str) -> List[str]:
+        """The panel itself just wrote (or removed) these files: move only
+        their baseline entries to the new state, so its own changes (a domain
+        added, a vhost re-rendered) don't raise "changes detected" (fork).
+
+        Deliberately narrow. Other entries are untouched, so a hand edit
+        elsewhere in the scope still alerts, and so does any later edit to
+        the same file. A written path also covers entries that resolve to it:
+        the panel writes sites-available/x, and the monitor sees it as the
+        sites-enabled/x link. App scopes are never touched (docroots aren't
+        panel-written). Returns the scope:key entries updated; never raises.
+        """
+        updated = []
+        try:
+            wanted = {os.path.abspath(p) for p in paths if p}
+            resolved = {os.path.realpath(p) for p in wanted}
+            for scope in cls._baselined_scopes():
+                if cls._scope_kind(scope) == 'app':
+                    continue
+                state = cls._load_state(scope)
+                roots = cls._scope_roots(scope)
+                if not state or not roots:
+                    continue
+                files = state.get('files') or {}
+                excludes = state.get('excludes') or cls._scope_excludes(scope)
+                by_prefix = {os.path.basename(r.rstrip('/\\')): r for r in roots}
+
+                def absolute(key):
+                    if len(roots) == 1:
+                        return os.path.join(roots[0], key)
+                    head, _, rest = key.partition('/')
+                    root = by_prefix.get(head)
+                    return os.path.join(root, rest) if root and rest else None
+
+                current = cls._snapshot(scope, roots, excludes)
+                changed = False
+                for key in set(files) | set(current):
+                    path = absolute(key)
+                    if not path or (path not in wanted and os.path.realpath(path) not in resolved):
+                        continue
+                    if key in current:
+                        files[key] = current[key]
+                    else:
+                        files.pop(key, None)
+                    changed = True
+                    updated.append(f'{scope}:{key}')
+                if changed:
+                    state['files'] = files
+                    cls._save_state(scope, state)
+        except Exception as exc:  # never let bookkeeping break the write that called it
+            logger.debug('FIM managed-write update failed: %s', exc)
+        return updated
+
+    @classmethod
     def accept(cls, scope: str) -> Dict:
         """Operator acknowledges changes → re-baseline the scope."""
         # Preserve any operator-supplied extra excludes across accepts by

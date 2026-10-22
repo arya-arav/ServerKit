@@ -367,6 +367,23 @@ def run_from_gzip(cmd: List[str], src: str, *, env: Optional[dict] = None,
                      stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
 
 
+# Paths the file-integrity monitor watches that the panel also writes.
+_MANAGED_PREFIXES = ('/etc/nginx/', '/etc/systemd/system/')
+
+
+def note_managed_write(*paths: str) -> None:
+    """Tell the file-integrity monitor the panel itself changed these files,
+    so its own edits don't alert. Best-effort; never raises (fork)."""
+    relevant = [p for p in paths if p and os.path.abspath(p).startswith(_MANAGED_PREFIXES)]
+    if not relevant:
+        return
+    try:
+        from app.services.file_integrity_service import FileIntegrityService
+        FileIntegrityService.record_managed_write(*relevant)
+    except Exception:  # noqa: BLE001 - bookkeeping only
+        pass
+
+
 def write_privileged_file(path: str, content: str, *, append: bool = False,
                           mode: Optional[str] = None,
                           owner: Optional[str] = None) -> dict:
@@ -411,6 +428,7 @@ def write_privileged_file(path: str, content: str, *, append: bool = False,
     if result.returncode != 0:
         return {'success': False, 'path': path,
                 'error': (result.stderr or f'failed to write {path}').strip()}
+    note_managed_write(path)
 
     follow_ups = ([['chmod', mode, path]] if mode else []) + \
                  ([['chown', owner, path]] if owner else [])

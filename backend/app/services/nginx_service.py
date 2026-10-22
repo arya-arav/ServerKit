@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 from app.utils.system import (ServiceControl, is_command_available,
-                             run_privileged, write_privileged_file)
+                             run_privileged, write_privileged_file, note_managed_write)
 
 logger = logging.getLogger(__name__)
 
@@ -1291,6 +1291,7 @@ location /p/ {{
         try:
             result = run_privileged(['ln', '-sf', available_path, enabled_path])
             if result.returncode == 0:
+                note_managed_write(enabled_path)
                 # Reload nginx
                 reload_result = cls.reload()
                 if reload_result['success']:
@@ -1312,6 +1313,7 @@ location /p/ {{
         try:
             result = run_privileged(['rm', '-f', enabled_path])
             if result.returncode == 0:
+                note_managed_write(enabled_path)
                 reload_result = cls.reload()
                 if reload_result['success']:
                     return {'success': True, 'message': f'Site {name} disabled'}
@@ -1336,6 +1338,7 @@ location /p/ {{
         try:
             result = run_privileged(['rm', '-f', available_path])
             if result.returncode == 0:
+                note_managed_write(available_path)
                 return {'success': True, 'message': f'Site {name} deleted'}
             return {'success': False, 'error': result.stderr}
         except Exception as e:
