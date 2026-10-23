@@ -184,7 +184,14 @@ class AnomalyDetectionService:
         """
         with self._lock:
             known = self._known_ips[server_id]
-            is_new = ip_address not in known
+            if ip_address in known:
+                return False
+            # Resolved/acknowledged alerts still prove this address is known.
+            # Read before populating the cache so a DB failure remains retryable.
+            existing = SecurityAlert.query.filter_by(
+                server_id=server_id, source_ip=ip_address, alert_type='new_ip'
+            ).first()
+            is_new = existing is None
             known.add(ip_address)
 
         if is_new and self.THRESHOLDS['new_ip_alert']:
