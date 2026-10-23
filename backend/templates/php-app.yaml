@@ -1,7 +1,7 @@
 id: php-app
 name: PHP Application
 version: "8.3"
-description: Custom PHP application with Apache. Supports PHP 8.0-8.3. Perfect for Laravel, WordPress themes, or any PHP project.
+description: Custom PHP application with Apache. Uses security-patched PHP 8.3. Perfect for Laravel, WordPress themes, or any PHP project.
 icon: https://serverkit.ai/imgs/template-icons/php-app.svg
 website: https://www.php.net
 documentation: https://www.php.net/docs.php
@@ -17,9 +17,9 @@ variables:
     default: "8100"
     hidden: true
   - name: PHP_VERSION
-    description: PHP version (8.0, 8.1, 8.2, 8.3)
+    description: PHP version (minimum 8.3.36)
     type: string
-    default: "8.3"
+    default: "8.3.36"
 
 ports:
   - port: 8100
@@ -38,7 +38,7 @@ requirements:
 compose:
   services:
     app:
-      image: php:${PHP_VERSION:-8.3}-apache
+      image: php:${PHP_VERSION:-8.3.36}-apache
       container_name: ${APP_NAME}
       restart: unless-stopped
       ports:

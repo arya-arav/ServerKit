@@ -1224,6 +1224,11 @@ class TemplateService(TemplateCatalogMixin, TemplateMagicMixin, TemplatePortsMix
 
                 created_files.append(filename)
 
+                # Relative files (e.g. Dockerfiles) are build inputs, not
+                # absolute container paths to mount into every service.
+                if not container_path.startswith('/'):
+                    continue
+
                 # Track for bind mount: local file -> container path
                 # Get the container directory from the path
                 container_dir = os.path.dirname(container_path)
